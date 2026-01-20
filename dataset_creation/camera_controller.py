@@ -4,15 +4,7 @@ from cv2 import VideoCapture, imwrite
 import os
 
 # List all COM ports
-print("Available COM ports:")
-for port in serial.tools.list_ports.comports():
-    print(f"{port.device} - {port.description}")
 
-# PORT = "COM3"
-# BAUD = 9600
-
-# with serial.Serial(PORT, BAUD, timeout=1) as ser:
-#     ser.write(b"#af1 \r")
 
 
 
@@ -35,3 +27,9 @@ class CameraController:
             if self.LogLevel == "ERROR":
                 print("Failed to capture image")
         cam.release()
+    
+    def send_command(self, command):
+        with serial.Serial(self.port, self.baudrate, timeout=1) as ser:
+            ser.write(f"{command} \r".encode())
+            if self.LogLevel == "INFO":
+                print(f"Sent command: {command}")
