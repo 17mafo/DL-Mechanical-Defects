@@ -42,28 +42,37 @@ class CameraController:
         self.cam.release()
     
     def save_preset_images(self, filename_prefix="good/bad", path=os.path.dirname(__file__) + "/images"):
-        self.send_command("#rpre1")
-        frame1 = self.get_image()
-        namedWindow("win1", WINDOW_NORMAL)
-        resizeWindow("win1", 800 , 450)
-        moveWindow("win1", 140, - 1080 + 200)  # x, y in pixels from top-left of screen
+        loop = True
+        while loop:
+            self.send_command("#rpre1")
+            frame1 = self.get_image()
+            namedWindow("win1", WINDOW_NORMAL)
+            resizeWindow("win1", 800 , 450)
+            moveWindow("win1", 140, - 1080 + 200)  # x, y in pixels from top-left of screen
 
-        self.send_command("#rpre2")
-        frame2 = self.get_image()
-        namedWindow("win2", WINDOW_NORMAL)
-        resizeWindow("win2", 800 , 450)
-        moveWindow("win2", 940, - 1080 + 200)  # x, y in pixels from top-left of screen
+            self.send_command("#rpre2")
+            frame2 = self.get_image()
+            namedWindow("win2", WINDOW_NORMAL)
+            resizeWindow("win2", 800 , 450)
+            moveWindow("win2", 940, - 1080 + 200)  # x, y in pixels from top-left of screen
 
-        imshow("win1", frame1)
-        imshow("win2", frame2)
-        if waitKey(0) == ord('a'):
-            print ("pressed a")
-            filename_prefix += "good_"
-            path += "/good"
-        else:
-            print("pressed other key")
-            filename_prefix += "bad_"
-            path += "/bad"
+            imshow("win1", frame1)
+            imshow("win2", frame2)
+            key = waitKey(0)
+            if key == ord('a'):
+                print ("pressed a")
+                filename_prefix += "good_"
+                path += "/good"
+                loop = False
+
+            elif key == ord('r'):
+                destroyAllWindows()
+                continue
+            else:
+                print("pressed other key")
+                filename_prefix += "bad_"
+                path += "/bad"
+                loop = False
 
         imwrite(f"{path}/{filename_prefix}focus_1.jpg", frame1)
         imwrite(f"{path}/{filename_prefix}focus_2.jpg", frame2)
