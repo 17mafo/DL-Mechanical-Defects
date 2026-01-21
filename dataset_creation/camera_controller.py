@@ -11,15 +11,16 @@ import msvcrt
 
 
 class CameraController:
-    def __init__(self, port="COM3", baudrate=9600, LogLevel="INFO"):
+    def __init__(self, port="COM3", baudrate=9600, LogLevel="INFO",cameraIdx=1):
         self.port = port
         self.baudrate = baudrate
         self.LogLevel = LogLevel
-    def capture_image(self, cameraIdx=1, filename="image.jpg", path=os.path.dirname(__file__) + "/images"):
+        self.cam = VideoCapture(cameraIdx)
+
+    def capture_image(self, filename="image.jpg", path=os.path.dirname(__file__) + "/images"):
         if not os.path.exists(path):
             os.makedirs(path)
-        cam = VideoCapture(cameraIdx)
-        ret, frame = cam.read()
+        ret, frame = self.cam.read()
         if ret:
             imwrite(f"{path}/{filename}", frame)
             destroyAllWindows()
@@ -28,17 +29,17 @@ class CameraController:
         else:
             if self.LogLevel == "ERROR":
                 print("Failed to capture image")
-        cam.release()
 
-    def get_image(self, cameraIdx=1, filename="image.jpg", path=os.path.dirname(__file__) + "/images"):
-        cam = VideoCapture(cameraIdx)
-        ret, frame = cam.read()
+    def get_image(self, filename="image.jpg", path=os.path.dirname(__file__) + "/images"):
+        ret, frame = self.cam.read()
         if ret:
             return frame
         else:
             if self.LogLevel == "ERROR":
                 print("Failed to capture image")
-        cam.release()
+    
+    def camera_release(self):
+        self.cam.release()
     
     def save_preset_images(self, filename_prefix="good/bad", path=os.path.dirname(__file__) + "/images"):
         self.send_command("#rpre1")
@@ -58,9 +59,11 @@ class CameraController:
         if waitKey(0) == ord('a'):
             print ("pressed a")
             filename_prefix += "good_"
+            path += "/good"
         else:
             print("pressed other key")
             filename_prefix += "bad_"
+            path += "/bad"
 
         imwrite(f"{path}/{filename_prefix}focus_1.jpg", frame1)
         imwrite(f"{path}/{filename_prefix}focus_2.jpg", frame2)
