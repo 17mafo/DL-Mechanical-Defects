@@ -18,14 +18,13 @@ while True:
     try:
         print('Press c to capture image, and q to quit:\n')
         key = msvcrt.getch()
-        if key.lower() == 'c':
+        if key.lower() == b'c':
             active_count += 1
             camera.save_preset_images(filename_prefix=f"{active_count}_",path="dataset_creation/images")
-            # update active count in json file
             write_file = open("dataset_creation/active_count.json", "w")
             write_file.write(str(active_count))
             write_file.close()
-        elif key.lower() == 'q':
+        elif key.lower() == b'q':
             camera.camera_release()
             exit(1)
             break
@@ -33,7 +32,6 @@ while True:
         print(f"Error: {e}")
         camera.camera_release()
         break
-    # camera.save_preset_images(filename_prefix="125_",path="dataset_creation/images")
 
 
 

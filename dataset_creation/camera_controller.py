@@ -1,6 +1,7 @@
 import serial
 from cv2 import WINDOW_NORMAL, VideoCapture, imwrite, imshow, moveWindow, namedWindow, resizeWindow, waitKey, destroyAllWindows
 import os
+import time
 
 class CameraController:
     def __init__(self, port="COM3", baudrate=9600, LogLevel="INFO",cameraIdx=1):
@@ -8,19 +9,6 @@ class CameraController:
         self.baudrate = baudrate
         self.LogLevel = LogLevel
         self.cam = VideoCapture(cameraIdx)
-
-    def capture_image(self, filename="image.jpg", path=os.path.dirname(__file__) + "/images"):
-        if not os.path.exists(path):
-            os.makedirs(path)
-        ret, frame = self.cam.read()
-        if ret:
-            imwrite(f"{path}/{filename}", frame)
-            destroyAllWindows()
-            if self.LogLevel == "INFO":
-                print(f"Image saved as {path}/{filename}")
-        else:
-            if self.LogLevel == "ERROR":
-                print("Failed to capture image")
 
     def get_image(self, filename="image.jpg", path=os.path.dirname(__file__) + "/images"):
         ret, frame = self.cam.read()
@@ -34,15 +22,18 @@ class CameraController:
         self.cam.release()
     
     def save_preset_images(self, filename_prefix="good/bad", path=os.path.dirname(__file__) + "/images"):
+
         loop = True
         while loop:
             self.send_command("#rpre1")
+            time.sleep(0.5)
             frame1 = self.get_image()
             namedWindow("win1", WINDOW_NORMAL)
             resizeWindow("win1", 800 , 450)
             moveWindow("win1", 140, - 1080 + 200)  # x, y in pixels from top-left of screen
 
             self.send_command("#rpre2")
+            time.sleep(0.5)
             frame2 = self.get_image()
             namedWindow("win2", WINDOW_NORMAL)
             resizeWindow("win2", 800 , 450)
@@ -50,9 +41,11 @@ class CameraController:
 
             imshow("win1", frame1)
             imshow("win2", frame2)
+            print("Press g for good part, any other key for bad part, r to retake:")
             key = waitKey(0)
-            if key == ord('a'):
-                print ("pressed a")
+            if key == ord('g'):
+                if self.LogLevel == "INFO":
+                    print ("pressed g")
                 filename_prefix += "good_"
                 path += "/good"
                 loop = False
@@ -61,10 +54,14 @@ class CameraController:
                 destroyAllWindows()
                 continue
             else:
-                print("pressed other key")
+                if self.LogLevel == "INFO":
+                    print("pressed other key")
                 filename_prefix += "bad_"
                 path += "/bad"
                 loop = False
+
+        if not os.path.exists(path):
+            os.makedirs(path)
 
         imwrite(f"{path}/{filename_prefix}focus_1.jpg", frame1)
         imwrite(f"{path}/{filename_prefix}focus_2.jpg", frame2)
