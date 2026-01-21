@@ -1,7 +1,4 @@
 from camera_controller import CameraController
-import serial
-import serial.tools.list_ports
-import time
 import msvcrt
 
 camera = CameraController(LogLevel="INFO")
@@ -19,7 +16,7 @@ while True:
     print(f"Current active count: {active_count}")
     
     try:
-        print('Press s or n to continue:\n')
+        print('Press c to capture image, and q to quit:\n')
         key = msvcrt.getch()
         if key.lower() == 'c':
             active_count += 1

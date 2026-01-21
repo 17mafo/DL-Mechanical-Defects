@@ -1,14 +1,6 @@
 import serial
-import serial.tools.list_ports
 from cv2 import WINDOW_NORMAL, VideoCapture, imwrite, imshow, moveWindow, namedWindow, resizeWindow, waitKey, destroyAllWindows
 import os
-import msvcrt
-
-
-# List all COM ports
-
-
-
 
 class CameraController:
     def __init__(self, port="COM3", baudrate=9600, LogLevel="INFO",cameraIdx=1):
