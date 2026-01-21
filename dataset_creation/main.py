@@ -11,8 +11,10 @@ while True:
         read_file = open("dataset_creation/active_count.json", "r")
         active_count = int(read_file.read())
         read_file.close()
-    except:
-        pass
+    except FileNotFoundError:
+        write_file = open("dataset_creation/active_count.json", "w")
+        write_file.write("0")
+        write_file.close()
     print(f"Current active count: {active_count}")
     
     try:
