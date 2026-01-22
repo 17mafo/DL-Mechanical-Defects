@@ -7,12 +7,19 @@ class ImagePreprocessor:
 
         # Mask green areas
         self.hole_mask = cv2.inRange(self.img, np.array([0, 65, 0]), np.array([50, 250, 80]))
+        self.region_mask = self.test_floodfill_from_green(5, 35, display=False)
         # Find contours of green areas
-        self.contours, _ = cv2.findContours(self.hole_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        self.contours, _ = cv2.findContours(self.region_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not self.contours:
             raise Exception("No contours found in hole mask")
 
         self.largest_contour = max(self.contours, key=cv2.contourArea)
+
+        self.contours_old, _ = cv2.findContours(self.hole_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if not self.contours_old:
+            raise Exception("No contours found in hole mask")
+
+        self.largest_contour_old = max(self.contours_old, key=cv2.contourArea)
                 
         # Clean mask (removes "worms" in green area)
         # kernel = np.ones((5,5), np.uint8)
@@ -23,7 +30,7 @@ class ImagePreprocessor:
 
     def image_initial_cutting(self, brim_px=20, display=False):
         # Make find largest to contour and make circle, take radious and add on artifical amount to take out correct
-        (cx, cy), hole_radius = cv2.minEnclosingCircle(self.largest_contour)
+        (cx, cy), hole_radius = cv2.minEnclosingCircle(self.largest_contour_old)
         cx, cy, hole_radius = int(cx), int(cy), int(hole_radius)
         brim_radius = hole_radius + brim_px
         h, w = self.img.shape[:2]
@@ -48,6 +55,7 @@ class ImagePreprocessor:
     def outer_rim_cutting(self, brim_px=20, display=False):
 
         # Get initial cut
+        
         initial_cut = self.image_initial_cutting(brim_px=brim_px, display=display)
         # Get green background area
         background = self.background_area(display=display)
@@ -74,7 +82,7 @@ class ImagePreprocessor:
     
     def background_area(self, display=False):
         # Create a mask for just the largest green area
-        largest_mask = np.zeros_like(self.hole_mask)
+        largest_mask = np.zeros_like(self.region_mask)
         cv2.drawContours(largest_mask, [self.largest_contour], -1, 255, thickness=cv2.FILLED)
 
         # Apply mask to image and set non-green to white
@@ -142,8 +150,8 @@ class ImagePreprocessor:
 
 
 # Example
-imageproce = ImagePreprocessor("C:\\Programmering\\Masters\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\9_bad_focus_1.jpg")
-imageproce.test_floodfill_from_green(display=True)
+imageproce = ImagePreprocessor("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\13_bad_focus_2.jpg")
+imageproce.outer_rim_cutting(display=True)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
