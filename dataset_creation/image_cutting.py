@@ -5,25 +5,34 @@ class ImagePreprocessor:
     def __init__(self, img_path):
   # Load image and convert to HSV
         self.img = cv2.imread(img_path)
-        self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
+        self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2YCrCb)
+
+        # cv2.imshow("HSV", self.hsv)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         # Target green color in RGB (from RGBA)
-        rgb_target = np.array([18, 78, 6], dtype=np.uint8).reshape(1, 1, 3)
-        hsv_target = cv2.cvtColor(rgb_target, cv2.COLOR_RGB2HSV)[0,0]
-        h, s, v = int(hsv_target[0]), int(hsv_target[1]), int(hsv_target[2])
+        # rgb_target = np.array([18, 78, 6], dtype=np.uint8).reshape(1, 1, 3)
+        # hsv_target = cv2.cvtColor(rgb_target, cv2.COLOR_RGB2HSV)[0,0]
+        # h = int(hsv_target[0])
 
         # Create a tight HSV range around target to remove dark/dull areas
-        self.lower_green = np.array([max(h-10,0), 150, 50])  # limit S>150, V>50
-        self.upper_green = np.array([min(h+10,179), 255, 255])
+        # self.lower_green = np.array([max(h-10,0), 150, 50])  # limit S>150, V>50
+        # self.upper_green = np.array([min(h+10,179), 255, 255])
 
         # Mask green areas
-        self.hole_mask = cv2.inRange(self.hsv, self.lower_green, self.upper_green)
+        self.hole_mask = cv2.inRange(self.img, np.array([0, 65, 0]), np.array([50, 90, 50]))
 
-        # Clean mask using morphology
+        cv2.imshow("HSV", self.hole_mask)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        exit(1)
+
+        # Clean mask
         kernel = np.ones((5,5), np.uint8)
         self.hole_mask = cv2.morphologyEx(self.hole_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         self.hole_mask = cv2.morphologyEx(self.hole_mask, cv2.MORPH_OPEN, kernel, iterations=1)
-        self.green_cutout_mask = None  # to be defined in methods
+        self.green_cutout_mask = None
 
     def image_initial_cutting(self,brim_px=20):
 
@@ -135,7 +144,7 @@ class ImagePreprocessor:
 
 
 # Example
-imageproce = ImagePreprocessor("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\3_bad_focus_2.jpg")
+imageproce = ImagePreprocessor("C:\\Programmering\\Masters\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\3_bad_focus_2.jpg")
 imageproce.outer_rim_cutting()
 cv2.imshow("outer_rim.png", imageproce.outer_rim_cutting())
 
