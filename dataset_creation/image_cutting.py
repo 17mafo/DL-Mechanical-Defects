@@ -4,7 +4,6 @@ import numpy as np
 class ImagePreprocessor:
     def __init__(self, img_path):
         self.img = cv2.imread(img_path)
-        self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2YCrCb)
 
         # Mask green areas
         self.hole_mask = cv2.inRange(self.img, np.array([0, 65, 0]), np.array([50, 250, 80]))
@@ -94,11 +93,57 @@ class ImagePreprocessor:
 
         return green_only
 
+    def test_floodfill_from_green(self, lo=10, up=10, display=True):
+
+        # Find seed point as center of green mask
+        ys, xs = np.where(self.hole_mask > 0)
+        if len(xs) == 0:
+            raise Exception("hole_mask is empty")
+
+        seed_x = int(xs.mean())
+        seed_y = int(ys.mean())
+        seed = (seed_x, seed_y)
+
+        # Prepare floodFill mask (must be 2 pixels larger than image)
+        h, w = self.img.shape[:2]
+        mask = np.zeros((h + 2, w + 2), np.uint8)
+
+        # Use FIXED_RANGE so threshold is relative to seed pixel
+        flags = 8 | cv2.FLOODFILL_FIXED_RANGE
+
+        # floodFill modifies the image, so work on a copy
+        tmp = self.img.copy()
+
+        num, _, mask_out, rect = cv2.floodFill(
+            tmp,
+            mask,
+            seedPoint=seed,
+            newVal=(0, 0, 0),
+            loDiff=(lo, lo, lo),
+            upDiff=(up, up, up),
+            flags=flags
+        )
+
+        # Convert OpenCV floodFill mask to binary region mask
+        region_mask = ((mask_out[1:-1, 1:-1] != 0).astype(np.uint8) * 255)
+
+        if display:
+            #cv2.imshow("Green Mask", self.hole_mask)
+            cv2.imshow("FloodFill Region Mask", region_mask)
+            #cv2.imshow("FloodFilled Image", tmp)
+
+
+        print("FloodFill seed:", seed)
+        print("Filled pixels:", num)
+        print("Bounding rect:", rect)
+
+        return region_mask
+
 
 
 # Example
-imageproce = ImagePreprocessor("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\images\\good\\7_good_focus_2.jpg")
-imageproce.outer_rim_cutting(display=True)
+imageproce = ImagePreprocessor("C:\\Programmering\\Masters\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\9_bad_focus_1.jpg")
+imageproce.test_floodfill_from_green(display=True)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
