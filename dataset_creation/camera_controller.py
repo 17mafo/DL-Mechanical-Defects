@@ -4,7 +4,7 @@ import os
 import time
 
 class CameraController:
-    def __init__(self, port="COM3", baudrate=9600, LogLevel="INFO",cameraIdx=1):
+    def __init__(self, port="COM3", baudrate=9600, LogLevel="INFO",cameraIdx=0):
         self.port = port
         self.baudrate = baudrate
         self.LogLevel = LogLevel
@@ -21,7 +21,7 @@ class CameraController:
     def camera_release(self):
         self.cam.release()
     
-    def save_preset_images(self, filename_prefix="good/bad", path=os.path.dirname(__file__) + "/images"):
+    def save_preset_images(self, number=0, path=os.path.dirname(__file__) + "/images"):
 
         loop = True
         while loop:
@@ -41,30 +41,45 @@ class CameraController:
 
             imshow("win1", frame1)
             imshow("win2", frame2)
-            print("Press g for good part, any other key for bad part, r to retake:")
-            key = waitKey(0)
-            if key == ord('g'):
-                if self.LogLevel == "INFO":
-                    print ("pressed g")
-                filename_prefix += "good_"
-                path += "/good"
-                loop = False
+            frames = [
+                (frame1, path),
+                (frame2, path),
+            ]
+            for i, (frame, local_path) in enumerate(frames):
+                print(f"\n({i+1}) Press g for good part, b key for bad part," \
+                      "\nz for bad but looks good " \
+                      "\nr to retake, q to quit:")
+                key = waitKey(0)
 
-            elif key == ord('r'):
-                destroyAllWindows()
-                continue
-            else:
-                if self.LogLevel == "INFO":
-                    print("pressed other key")
-                filename_prefix += "bad_"
-                path += "/bad"
-                loop = False
+                if key == ord('g'):
+                    if self.LogLevel == "INFO":
+                        print ("pressed g")
+                    frames[i] = (frame, local_path + f"/good/{i+1}")
+                    loop = False
 
-        if not os.path.exists(path):
-            os.makedirs(path)
+                elif key == ord('b'):
+                    if self.LogLevel == "INFO":
+                        print ("pressed b")
+                    frames[i] = (frame, local_path + f"/bad/{i+1}")
+                    loop = False
 
-        imwrite(f"{path}/{filename_prefix}focus_1.jpg", frame1)
-        imwrite(f"{path}/{filename_prefix}focus_2.jpg", frame2)
+                elif key == ord('z'):
+                    if self.LogLevel == "INFO":
+                        print ("pressed z")
+                    frames[i] = (frame, local_path + f"/bad_but_looks_good/{i+1}")
+                    loop = False
+                elif key == ord('q'):
+                    destroyAllWindows()
+                    return
+
+                else:
+                    destroyAllWindows()
+                    continue
+
+        for i, (frame, local_path) in enumerate(frames):
+            if not os.path.exists(local_path):
+                os.makedirs(local_path)
+            imwrite(f"{local_path}/{number}.jpg", frame)
         destroyAllWindows()
     
     def send_command(self, command):

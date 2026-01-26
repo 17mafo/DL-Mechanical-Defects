@@ -1,7 +1,7 @@
 from camera_controller import CameraController
 import msvcrt
 
-camera = CameraController(LogLevel="INFO")
+camera = CameraController(LogLevel="INFO", cameraIdx=0)
 
 
 while True:
@@ -22,7 +22,7 @@ while True:
         key = msvcrt.getch()
         if key.lower() == b'c':
             active_count += 1
-            camera.save_preset_images(filename_prefix=f"{active_count}_",path="dataset_creation/images")
+            camera.save_preset_images(number=active_count,path="dataset_creation/images")
             write_file = open("dataset_creation/active_count.json", "w")
             write_file.write(str(active_count))
             write_file.close()
