@@ -3,15 +3,18 @@ import numpy as np
 
 class ImagePreprocessor:
     def __init__(self, img_path):
+
         self.img = cv2.imread(img_path)
 
         # Mask green areas
         self.hole_mask = cv2.inRange(self.img, np.array([0, 65, 0]), np.array([50, 250, 80]))
 
+        # Contrast change for better floodfill
         self.imgcontrast = cv2.convertScaleAbs(self.img, alpha=3, beta=-20)
-        
-        cv2.imshow("contrast", self.imgcontrast)
-        self.region_mask = self.test_floodfill_from_green((40,40,40), (90,210,90), display=False)
+        # cv2.imshow("contrast", self.imgcontrast)
+
+        self.region_mask = self.floodfill_green((40,40,40), (90,210,90), display=False)
+
         # Find contours of green areas
         self.contours, _ = cv2.findContours(self.region_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not self.contours:
@@ -33,6 +36,7 @@ class ImagePreprocessor:
         self.green_cutout_mask = None
 
     def image_initial_cutting(self, brim_px=20, display=False):
+
         # Make find largest to contour and make circle, take radious and add on artifical amount to take out correct
         (cx, cy), hole_radius = cv2.minEnclosingCircle(self.largest_contour_old)
         cx, cy, hole_radius = int(cx), int(cy), int(hole_radius)
@@ -45,6 +49,7 @@ class ImagePreprocessor:
         # Make everything outside the green_cutout_mask white
         out = self.img.copy()
         out[~self.green_cutout_mask] = 255
+
         # Crop image to bounding box of mask
         ys, xs = np.where(self.green_cutout_mask)
         y0, y1 = ys.min(), ys.max()
@@ -59,8 +64,8 @@ class ImagePreprocessor:
     def outer_rim_cutting(self, brim_px=20, display=False):
 
         # Get initial cut
-        
         initial_cut = self.image_initial_cutting(brim_px=brim_px, display=display)
+
         # Get green background area
         background = self.background_area(display=display)
 
@@ -85,6 +90,7 @@ class ImagePreprocessor:
         return outer_rim
     
     def background_area(self, display=False):
+
         # Create a mask for just the largest green area
         largest_mask = np.zeros_like(self.region_mask)
         cv2.drawContours(largest_mask, [self.largest_contour], -1, 255, thickness=cv2.FILLED)
@@ -105,7 +111,7 @@ class ImagePreprocessor:
 
         return green_only
 
-    def test_floodfill_from_green(self, lo=10, up=10, display=True):
+    def floodfill_green(self, lo=10, up=10, display=True):
 
         # Find seed point as center of green mask
         ys, xs = np.where(self.hole_mask > 0)
@@ -126,15 +132,8 @@ class ImagePreprocessor:
         # floodFill modifies the image, so work on a copy
         tmp = self.imgcontrast.copy()
 
-        num, _, mask_out, rect = cv2.floodFill(
-            tmp,
-            mask,
-            seedPoint=seed,
-            newVal=(0, 0, 0),
-            loDiff=lo,
-            upDiff=up,
-            flags=flags
-        )
+        _, _, mask_out, _ = cv2.floodFill(tmp, mask, seedPoint=seed, newVal=(0, 0, 0),
+                                               loDiff=lo, upDiff=up, flags=flags)
 
         # Convert OpenCV floodFill mask to binary region mask
         region_mask = ((mask_out[1:-1, 1:-1] != 0).astype(np.uint8) * 255)
@@ -144,20 +143,15 @@ class ImagePreprocessor:
             cv2.imshow("FloodFill Region Mask", region_mask)
             #cv2.imshow("FloodFilled Image", tmp)
 
-
-        print("FloodFill seed:", seed)
-        print("Filled pixels:", num)
-        print("Bounding rect:", rect)
-
         return region_mask
 
 
 
-# Example
-imageproce = ImagePreprocessor("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\13_bad_focus_2.jpg")
-imageproce.outer_rim_cutting(display=True)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# Testing code
+# imageproce = ImagePreprocessor("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\13_bad_focus_2.jpg")
+# imageproce.outer_rim_cutting(display=True)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
 
 # hole_plus_metal = imageproce.image_initial_cutting(display=False)
 # imageproce.outer_rim_cutting(display=True)
