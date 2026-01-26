@@ -10,8 +10,8 @@ class ImagePreprocessor:
         
         self.imgcontrast = cv2.convertScaleAbs(self.img, alpha=3, beta=-20)
         
-        # cv2.imshow("contrast", self.imgcontrast)
-        self.region_mask = self.test_floodfill_from_green(40, 100, display=False)
+        cv2.imshow("contrast", self.imgcontrast)
+        self.region_mask = self.test_floodfill_from_green((40,40,40), (90,210,90), display=False)
         # Find contours of green areas
         self.contours, _ = cv2.findContours(self.region_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not self.contours:
@@ -135,8 +135,8 @@ class ImagePreprocessor:
             mask,
             seedPoint=seed,
             newVal=(0, 0, 0),
-            loDiff=(lo, lo, lo),
-            upDiff=(up, up, up),
+            loDiff=lo,
+            upDiff=up,
             flags=flags
         )
 
@@ -158,7 +158,7 @@ class ImagePreprocessor:
 
 
 # Example
-imageproce = ImagePreprocessor("C:\\Programmering\\Masters\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\5_bad_focus_2.jpg")
+imageproce = ImagePreprocessor("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\13_bad_focus_2.jpg")
 imageproce.outer_rim_cutting(display=True)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
