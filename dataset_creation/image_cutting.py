@@ -7,7 +7,11 @@ class ImagePreprocessor:
 
         # Mask green areas
         self.hole_mask = cv2.inRange(self.img, np.array([0, 65, 0]), np.array([50, 250, 80]))
-        self.region_mask = self.test_floodfill_from_green(5, 35, display=False)
+        
+        self.imgcontrast = cv2.convertScaleAbs(self.img, alpha=3, beta=-20)
+        
+        # cv2.imshow("contrast", self.imgcontrast)
+        self.region_mask = self.test_floodfill_from_green(40, 100, display=False)
         # Find contours of green areas
         self.contours, _ = cv2.findContours(self.region_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not self.contours:
@@ -25,6 +29,10 @@ class ImagePreprocessor:
         # kernel = np.ones((5,5), np.uint8)
         # self.hole_mask = cv2.morphologyEx(self.hole_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         # self.hole_mask = cv2.morphologyEx(self.hole_mask, cv2.MORPH_OPEN, kernel, iterations=1)
+
+        # clean region_mask
+        # self.region_mask = cv2.morphologyEx(self.region_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        # self.region_mask = cv2.morphologyEx(self.region_mask, cv2.MORPH_OPEN, kernel, iterations=1)
 
         self.green_cutout_mask = None
 
@@ -120,7 +128,7 @@ class ImagePreprocessor:
         flags = 8 | cv2.FLOODFILL_FIXED_RANGE
 
         # floodFill modifies the image, so work on a copy
-        tmp = self.img.copy()
+        tmp = self.imgcontrast.copy()
 
         num, _, mask_out, rect = cv2.floodFill(
             tmp,
@@ -150,7 +158,7 @@ class ImagePreprocessor:
 
 
 # Example
-imageproce = ImagePreprocessor("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\13_bad_focus_2.jpg")
+imageproce = ImagePreprocessor("C:\\Programmering\\Masters\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\5_bad_focus_2.jpg")
 imageproce.outer_rim_cutting(display=True)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
