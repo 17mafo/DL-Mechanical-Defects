@@ -26,14 +26,14 @@ class CameraController:
         loop = True
         while loop:
             self.send_command("#rpre1")
-            time.sleep(0.5)
+            time.sleep(0.6)
             frame1 = self.get_image()
             namedWindow("win1", WINDOW_NORMAL)
             resizeWindow("win1", 800 , 450)
             moveWindow("win1", 140, - 1080 + 200)  # x, y in pixels from top-left of screen
 
             self.send_command("#rpre2")
-            time.sleep(0.5)
+            time.sleep(0.6)
             frame2 = self.get_image()
             namedWindow("win2", WINDOW_NORMAL)
             resizeWindow("win2", 800 , 450)
@@ -70,10 +70,11 @@ class CameraController:
                     loop = False
                 elif key == ord('q'):
                     destroyAllWindows()
-                    return
+                    return "quit"
 
                 else:
                     destroyAllWindows()
+                    loop = True
                     continue
 
         for i, (frame, local_path) in enumerate(frames):
