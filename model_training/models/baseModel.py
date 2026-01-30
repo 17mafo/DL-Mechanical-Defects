@@ -3,14 +3,25 @@ from tensorflow.keras import layers, Model
 
 
 class BaseModel:
-    def __init__(self, model, input_shape=(224, 224, 3), weights='imagenet', classifier_activation='softmax', dense_units=256, output_activation='sigmoid'):
-        self.model = model(
+    def __init__(self, model, input_shape=(224, 224, 3), weights='imagenet', classifier_activation='softmax', dense_units=256, output_activation='sigmoid', include_preprocessing=None):
+        if(include_preprocessing != None):
+            self.model = model(
                 include_top=False,
                 weights=weights,
                 input_tensor=None,
                 input_shape=input_shape,
                 pooling=None,
-                classifier_activation=classifier_activation
+                classifier_activation=classifier_activation,
+                include_preprocessing=include_preprocessing
+        )
+        else:
+            self.model = model(
+                include_top=False,
+                weights=weights,
+                input_tensor=None,
+                input_shape=input_shape,
+                pooling=None,
+                classifier_activation=classifier_activation,
         )
         outputlayer = self.model.output
         outputlayer = layers.GlobalAveragePooling2D()(outputlayer)
