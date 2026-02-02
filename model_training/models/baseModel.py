@@ -29,6 +29,17 @@ class BaseModel:
         outputlayer = layers.Dense(params.get('dense_units', 256), activation=params.get('classifier_activation', 'relu'))(outputlayer)
         outputs = layers.Dense(1, activation=params.get('output_activation', 'sigmoid'))(outputlayer)
         self.model = Model(inputs=self.model.input, outputs=outputs)
+    
+    def preprocess(self, train_ds, val_ds, preprocess_input):
+        train_ds = train_ds.map(
+            lambda x, y: (preprocess_input(x), y),
+            num_parallel_calls=tf.data.AUTOTUNE
+        ).prefetch(tf.data.AUTOTUNE)
+
+        val_ds = val_ds.map(
+            lambda x, y: (preprocess_input(x), y),
+            num_parallel_calls=tf.data.AUTOTUNE
+        ).prefetch(tf.data.AUTOTUNE)
 
 
     def train(self, data, validation_data, **params):

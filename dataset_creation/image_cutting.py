@@ -1,8 +1,9 @@
 import cv2
 import numpy as np
+import os
 
 class ImagePreprocessor:
-    def __init__(self, img_path):
+    def __init__(self, img_path, brim_px=20):
 
         self.img = cv2.imread(img_path)
 
@@ -33,10 +34,6 @@ class ImagePreprocessor:
         # self.region_mask = cv2.morphologyEx(self.region_mask, cv2.MORPH_CLOSE, kernel)
         # self.region_mask = cv2.morphologyEx(self.region_mask, cv2.MORPH_OPEN, kernel)
 
-        self.green_cutout_mask = None
-
-    def image_initial_cutting(self, brim_px=20, display=False):
-
         # Make find largest to contour and make circle, take radious and add on artifical amount to take out correct
         (cx, cy), hole_radius = cv2.minEnclosingCircle(self.largest_contour_old)
         cx, cy, hole_radius = int(cx), int(cy), int(hole_radius)
@@ -45,6 +42,8 @@ class ImagePreprocessor:
         Y, X = np.ogrid[:h, :w]
         dist = np.sqrt((X - cx)**2 + (Y - cy)**2)
         self.green_cutout_mask = dist <= brim_radius
+
+    def image_initial_cutting(self, display=False):
 
         # Make everything outside the green_cutout_mask white
         out = self.img.copy()
@@ -61,10 +60,10 @@ class ImagePreprocessor:
 
         return out_cropped
     
-    def outer_rim_cutting(self, brim_px=20, display=False):
+    def outer_rim_cutting(self, display=False):
 
         # Get initial cut
-        initial_cut = self.image_initial_cutting(brim_px=brim_px, display=display)
+        initial_cut = self.image_initial_cutting(display=display)
 
         # Get green background area
         background = self.background_area(display=display)
@@ -144,14 +143,60 @@ class ImagePreprocessor:
             #cv2.imshow("FloodFilled Image", tmp)
 
         return region_mask
+    
+def process_folder(input_folder, output_folder, processType, LOGGING=False):
+    for root, dirs, files in os.walk(input_folder):
+        for file in files:
+            if file.lower().endswith(('.jpg')):
+                input_path = os.path.join(root, file)
+                relative_path = os.path.relpath(root, input_folder)
+                output_dir = os.path.join(output_folder, relative_path)
+                os.makedirs(output_dir, exist_ok=True)
+                output_path = os.path.join(output_dir, file)
+
+                try:
+                    imageproce = ImagePreprocessor(input_path)
+
+                    if processType == "initial":
+                        processed_image = imageproce.image_initial_cutting(display=False)
+                    elif processType == "outer_rim":
+                        processed_image = imageproce.outer_rim_cutting(display=False)
+                    elif processType == "background":
+                        processed_image = imageproce.background_area(display=False)
+                    else:
+                        raise ValueError(f"Unknown processType: {processType}")
+                    # Reize image to 300x300
+                    processed_image = cv2.resize(processed_image, (300, 300))
+                    cv2.imwrite(output_path, processed_image)
+                    if LOGGING:
+                        print(f"Processed and saved: {output_path}")
+                except Exception as e:
+                    print(f"Failed to process {input_path}: {e}")
 
 
 
 # Testing code
-# imageproce = ImagePreprocessor("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\images\\bad\\13_bad_focus_2.jpg")
-# imageproce.outer_rim_cutting(display=True)
+# imageproce = ImagePreprocessor("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\images\\bad_but_looks_good\\2\\1.jpg")
+# outer_rim = imageproce.outer_rim_cutting(display=True)
+# hole_plus_metal = imageproce.image_initial_cutting(display=False)
+# background = imageproce.background_area(display=False)
+# cv2.imwrite("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\test\\background.jpg", background)
+# cv2.imwrite("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\test\\hole_plus_metal.jpg", hole_plus_metal)
+# cv2.imwrite("C:\\Users\\marti\\Documents\\DL-Mechanical-Defects\\dataset_creation\\test\\output.jpg", outer_rim)
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
 
 # hole_plus_metal = imageproce.image_initial_cutting(display=False)
 # imageproce.outer_rim_cutting(display=True)
+
+# Take folder input and process all images in folder and sub folders, and save the min another folder but with the exact same folder structure
+
+if __name__ == "__main__":
+
+    input_folder = "dataset_creation/images"
+
+    process_folder(input_folder, "dataset_creation/processed_images/initial", processType="initial", LOGGING=True)
+
+    process_folder(input_folder, "dataset_creation/processed_images/outer_rim" , processType="outer_rim", LOGGING=True)
+
+    process_folder(input_folder, "dataset_creation/processed_images/background", processType="background", LOGGING=True)
