@@ -3,45 +3,39 @@ from tensorflow.keras import layers, Model
 
 
 class BaseModel:
-    def __init__(self, model, input_shape=(224, 224, 3), weights='imagenet', classifier_activation='softmax', dense_units=256, output_activation='sigmoid', include_preprocessing=None):
-        if(include_preprocessing != None):
+    def __init__(self, model, **params):
+        if params.get('include_preprocessing', None) is not None:
             self.model = model(
                 include_top=False,
-                weights=weights,
+                weights=params.get('weights', 'imagenet'),
                 input_tensor=None,
-                input_shape=input_shape,
+                input_shape=params.get('input_shape', (300, 300, 3)),
                 pooling=None,
-                classifier_activation=classifier_activation,
-                include_preprocessing=include_preprocessing
-        )
+                classifier_activation=params.get('classifier_activation', 'softmax'),
+                include_preprocessing=params.get('include_preprocessing', None)
+        ) # input_shape=(224, 224, 3), weights='imagenet', classifier_activation='softmax', dense_units=256, output_activation='sigmoid', include_preprocessing=None
         else:
             self.model = model(
                 include_top=False,
-                weights=weights,
+                weights=params.get('weights', 'imagenet'),
                 input_tensor=None,
-                input_shape=input_shape,
+                input_shape=params.get('input_shape', (300, 300, 3)),
                 pooling=None,
-                classifier_activation=classifier_activation,
+                classifier_activation=params.get('classifier_activation', 'softmax')
         )
+        self.model.trainable = False
         outputlayer = self.model.output
         outputlayer = layers.GlobalAveragePooling2D()(outputlayer)
-        outputlayer = layers.Dense(dense_units, activation=classifier_activation)(outputlayer)
-        outputs = layers.Dense(1, activation=output_activation)(outputlayer)
+        outputlayer = layers.Dense(params.get('dense_units', 256), activation=params.get('classifier_activation', 'relu'))(outputlayer)
+        outputs = layers.Dense(1, activation=params.get('output_activation', 'sigmoid'))(outputlayer)
         self.model = Model(inputs=self.model.input, outputs=outputs)
 
 
+    def train(self, data, validation_data, **params):
+        self.model.compile(optimizer=params.get('optimizer', 'adam'), loss=params.get('loss', 'sparse_categorical_crossentropy'), metrics=params.get('metrics', ['accuracy']))
+        self.model.fit(data, validation_data, epochs=params.get('epochs', 10))
+        # epochs=10, batch_size=32, optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy']
 
-
-
-
-
-    def train(self, data, labels, epochs=10, batch_size=32, optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy']):
-        self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
-        self.model.fit(data, labels, epochs=epochs, batch_size=batch_size)
 
     def summary(self):
         self.model.summary()
-
-
-    def create_layer(self):
-        print("Creating base model layer...")
