@@ -154,11 +154,12 @@ class MLPipeline:
             shuffle=True
         )
 
-    def run_pipline (self):
+    def run_pipline(self):
         for model in self.models:
-            bm
-            pass
+            mod = bm(model[0], model[1])
+            mod.preprocess(model[2], model[3], self.preprocess_input)
+            mod.train(model[1])
+            mod.summary()
 
-    
 
     

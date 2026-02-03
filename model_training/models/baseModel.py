@@ -12,7 +12,7 @@ class BaseModel:
                 input_shape=params.get('input_shape', (300, 300, 3)),
                 pooling=None,
                 classifier_activation=params.get('classifier_activation', 'softmax'),
-                include_preprocessing=params.get('include_preprocessing', None)
+                include_preprocessing=params.get('include_preprocessing', False)
         ) # input_shape=(224, 224, 3), weights='imagenet', classifier_activation='softmax', dense_units=256, output_activation='sigmoid', include_preprocessing=None
         else:
             self.model = model(
@@ -31,20 +31,21 @@ class BaseModel:
         self.model = Model(inputs=self.model.input, outputs=outputs)
     
     def preprocess(self, train_ds, val_ds, preprocess_input):
-        train_ds = train_ds.map(
+        self.train_ds = train_ds.map(
             lambda x, y: (preprocess_input(x), y),
             num_parallel_calls=tf.data.AUTOTUNE
         ).prefetch(tf.data.AUTOTUNE)
 
-        val_ds = val_ds.map(
+        self.val_ds = val_ds.map(
             lambda x, y: (preprocess_input(x), y),
             num_parallel_calls=tf.data.AUTOTUNE
         ).prefetch(tf.data.AUTOTUNE)
 
 
-    def train(self, data, validation_data, **params):
-        self.model.compile(optimizer=params.get('optimizer', 'adam'), loss=params.get('loss', 'sparse_categorical_crossentropy'), metrics=params.get('metrics', ['accuracy']))
-        self.model.fit(data, validation_data, epochs=params.get('epochs', 10))
+
+    def train(self, **params):
+        self.model.compile(optimizer=params.get('optimizer', 'adam'), loss=params.get('loss', 'sparse_categorical_crossentropy'), metrics=params.get('metrics', ['accuracy', 'f1_score']))
+        self.model.fit(self.train_ds, self.val_ds, epochs=params.get('epochs', 10))
         # epochs=10, batch_size=32, optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy']
 
 
