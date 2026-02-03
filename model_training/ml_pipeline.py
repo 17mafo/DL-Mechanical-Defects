@@ -22,6 +22,18 @@ class MLPipeline:
                 good_paths.append(path + f"/processed_images/{image_type}/bad_but_looks_good")
 
             return good_paths, bad_paths
+        
+        def redundant_loops(good_path, bad_path):
+            all_good_focus1 = good_path.copy()
+            all_bad_focus1 = bad_path.copy()
+            all_good_focus1 = [p + "/1" for p in good_path]
+            all_bad_focus1  = [p + "/1" for p in bad_path]
+
+            all_good_focus2 = good_path.copy()
+            all_bad_focus2 = bad_path.copy()
+            all_good_focus2 = [p + "/2" for p in good_path]
+            all_bad_focus2  = [p + "/2" for p in bad_path]
+            return all_good_focus1, all_bad_focus1, all_good_focus2, all_bad_focus2
 
         for image_type in (["background", "initial", "outer_rim"]):
             temp_focusModel = []
@@ -43,15 +55,7 @@ class MLPipeline:
 
             for good_path, bad_path in temp_focusModel:
                 if(focusmodels is None):
-                    all_good_focus1 = good_path.copy()
-                    all_bad_focus1 = bad_path.copy()
-                    all_good_focus1 = [p + "/1" for p in good_path]
-                    all_bad_focus1  = [p + "/1" for p in bad_path]
-
-                    all_good_focus2 = good_path.copy()
-                    all_bad_focus2 = bad_path.copy()
-                    all_good_focus2 = [p + "/2" for p in good_path]
-                    all_bad_focus2  = [p + "/2" for p in bad_path]
+                    all_good_focus1, all_bad_focus1, all_good_focus2, all_bad_focus2 = redundant_loops(good_path, bad_path)
 
 
                     # Model 1
@@ -61,15 +65,7 @@ class MLPipeline:
                     train_ds, val_ds = self.create_datasets(all_good_focus2, all_bad_focus2)
                     self.models.append([model, params, train_ds, val_ds, all_good_focus2, all_bad_focus2])
                 
-                    all_good_focus1 = good_path.copy()
-                    all_bad_focus1 = bad_path.copy()
-                    all_good_focus1 = [p + "/1" for p in good_path]
-                    all_bad_focus1  = [p + "/1" for p in bad_path]
-
-                    all_good_focus2 = good_path.copy()
-                    all_bad_focus2 = bad_path.copy()
-                    all_good_focus2 = [p + "/2" for p in good_path]
-                    all_bad_focus2  = [p + "/2" for p in bad_path]
+                    all_good_focus1, all_bad_focus1, all_good_focus2, all_bad_focus2 = redundant_loops(good_path, bad_path)
                     
                     # Model 1
                     all_good_focus1.extend(all_good_focus2)
@@ -78,15 +74,7 @@ class MLPipeline:
                     self.models.append([model, params, train_ds, val_ds, all_good_focus1, all_bad_focus1])
 
                 elif(focusmodels):
-                    all_good_focus1 = good_path.copy()
-                    all_bad_focus1 = bad_path.copy()
-                    all_good_focus1 = [p + "/1" for p in good_path]
-                    all_bad_focus1  = [p + "/1" for p in bad_path]
-
-                    all_good_focus2 = good_path.copy()
-                    all_bad_focus2 = bad_path.copy()
-                    all_good_focus2 = [p + "/2" for p in good_path]
-                    all_bad_focus2  = [p + "/2" for p in bad_path]
+                    all_good_focus1, all_bad_focus1, all_good_focus2, all_bad_focus2 = redundant_loops(good_path, bad_path)
 
                     # Model 1
                     train_ds, val_ds = self.create_datasets(all_good_focus1, all_bad_focus1)
@@ -95,15 +83,7 @@ class MLPipeline:
                     train_ds, val_ds = self.create_datasets(all_good_focus2, all_bad_focus2)
                     self.models.append([model, params, train_ds, val_ds, all_good_focus2, all_bad_focus2])
                 else:
-                    all_good_focus1 = good_path.copy()
-                    all_bad_focus1 = bad_path.copy()
-                    all_good_focus1 = [p + "/1" for p in good_path]
-                    all_bad_focus1  = [p + "/1" for p in bad_path]
-
-                    all_good_focus2 = good_path.copy()
-                    all_bad_focus2 = bad_path.copy()
-                    all_good_focus2 = [p + "/2" for p in good_path]
-                    all_bad_focus2  = [p + "/2" for p in bad_path]
+                    all_good_focus1, all_bad_focus1, all_good_focus2, all_bad_focus2 = redundant_loops(good_path, bad_path)
                     
                     # Model 1
                     all_good_focus1.extend(all_good_focus2)
