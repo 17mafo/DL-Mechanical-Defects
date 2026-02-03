@@ -48,14 +48,18 @@ class BaseModel:
 
 
     def train(self, **params):
+        # Return history, display graphs etc
         callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
         self.model.compile(optimizer=params.get('optimizer', 'adam'), 
-                           loss=params.get('loss', 'sparse_categorical_crossentropy'),
-                           metrics=params.get('metrics', ['accuracy', 'f1_score']))
-        self.model.fit(self.train_ds, self.val_ds, 
+                           loss=params.get('loss', 'binary_crossentropy'),
+                           metrics=params.get('metrics', ['accuracy']))
+        # Lägg till early stopping (Spara den bästa)
+        self.model.fit(self.train_ds, 
+                       validation_data=self.val_ds,
+                       
                        epochs=params.get('epochs', 50),
                        callbacks=[callback])
-        # epochs=10, batch_size=32, optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy']
+        
 
 
     def summary(self):
