@@ -27,6 +27,10 @@ class BaseModel:
         outputlayer = self.model.output
         outputlayer = layers.GlobalAveragePooling2D()(outputlayer)
         outputlayer = layers.Dense(params.get('dense_units', 256), activation=params.get('classifier_activation', 'relu'))(outputlayer)
+
+        # Lägga till en till dense layer för 128
+
+
         outputs = layers.Dense(1, activation=params.get('output_activation', 'sigmoid'))(outputlayer)
         self.model = Model(inputs=self.model.input, outputs=outputs)
     
@@ -44,9 +48,13 @@ class BaseModel:
 
 
     def train(self, **params):
-        self.model.compile(optimizer=params.get('optimizer', 'adam'), loss=params.get('loss', 'sparse_categorical_crossentropy'), metrics=params.get('metrics', ['accuracy', 'f1_score']))
-        self.model.fit(self.train_ds, self.val_ds, epochs=params.get('epochs', 10))
-        # epochs=10, batch_size=32, optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy']
+        # Return history, display graphs etc
+        self.model.compile(optimizer=params.get('optimizer', 'adam'), loss=params.get('loss', 'binary_crossentropy'), metrics=params.get('metrics', ['accuracy']))
+        # Lägg till early stopping (Spara den bästa)
+        self.model.fit(self.train_ds, 
+                       validation_data=self.val_ds,
+                       epochs=params.get('epochs', 10))
+        
 
 
     def summary(self):
