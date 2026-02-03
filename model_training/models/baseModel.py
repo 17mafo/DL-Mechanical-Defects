@@ -54,13 +54,12 @@ class BaseModel:
                            loss=params.get('loss', 'binary_crossentropy'),
                            metrics=params.get('metrics', ['accuracy']))
         # Lägg till early stopping (Spara den bästa)
-        self.model.fit(self.train_ds, 
+        self.history = self.model.fit(self.train_ds, 
                        validation_data=self.val_ds,
-                       
                        epochs=params.get('epochs', 50),
                        callbacks=[callback])
         
-
+        return self.history
 
     def summary(self):
         self.model.summary()
