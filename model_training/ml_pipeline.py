@@ -111,8 +111,10 @@ class MLPipeline:
             plt.xlabel('Epochs')
             plt.ylabel('Accuracy')
             plt.legend()
+            # save figure
+            plt.savefig(f"{hist[0]}_training_history.png")
 
-            plt.show()
+            # plt.show()
 
 
 
