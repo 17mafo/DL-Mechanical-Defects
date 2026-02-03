@@ -21,10 +21,10 @@ def main():
                        image_type=["initial"],                       
                        focus=["1", "2"],
                        preprocess_input=ResNet50_preprocess_input,
-                       params={'dense_units': 512,
-                               'data_limit':32,
-                               'epochs':50,
-                               'batch_size':32,})
+                       dense_units = 512,
+                       data_limit=32,
+                       epochs=50,
+                       batch_size=32)
 
     pipeline.print_models()
     # pipeline.run_pipeline()
