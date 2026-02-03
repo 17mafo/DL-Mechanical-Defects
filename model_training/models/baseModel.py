@@ -3,7 +3,7 @@ from tensorflow.keras import layers, Model
 
 
 class BaseModel:
-    def __init__(self, model, **params):
+    def __init__(self, model, make2_dense = False, **params):
         if params.get('include_preprocessing', None) is not None:
             self.model = model(
                 include_top=False,
@@ -27,6 +27,10 @@ class BaseModel:
         outputlayer = self.model.output
         outputlayer = layers.GlobalAveragePooling2D()(outputlayer)
         outputlayer = layers.Dense(params.get('dense_units', 256), activation=params.get('classifier_activation', 'relu'))(outputlayer)
+
+        if make2_dense:
+            outputlayer = layers.Dense(params.get('dense_units2', 128), activation=params.get('classifier_activation', 'relu'))(outputlayer)
+
         outputs = layers.Dense(1, activation=params.get('output_activation', 'sigmoid'))(outputlayer)
         self.model = Model(inputs=self.model.input, outputs=outputs)
     
@@ -44,8 +48,13 @@ class BaseModel:
 
 
     def train(self, **params):
-        self.model.compile(optimizer=params.get('optimizer', 'adam'), loss=params.get('loss', 'sparse_categorical_crossentropy'), metrics=params.get('metrics', ['accuracy', 'f1_score']))
-        self.model.fit(self.train_ds, self.val_ds, epochs=params.get('epochs', 10))
+        callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
+        self.model.compile(optimizer=params.get('optimizer', 'adam'), 
+                           loss=params.get('loss', 'sparse_categorical_crossentropy'),
+                           metrics=params.get('metrics', ['accuracy', 'f1_score']))
+        self.model.fit(self.train_ds, self.val_ds, 
+                       epochs=params.get('epochs', 50),
+                       callbacks=[callback])
         # epochs=10, batch_size=32, optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy']
 
 
