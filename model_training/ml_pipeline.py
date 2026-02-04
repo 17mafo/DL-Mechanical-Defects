@@ -22,8 +22,9 @@ class MLPipeline:
                 train_ds, val_ds = self.create_datasets(good_paths, bad_paths,
                                                         batch_size = params.get('batch_size', 32),
                                                         img_size = params.get('img_size', (300,300)),
-                                                        val_split= params.get('val_split', 0.2),
-                                                        data_limit= params.get('data_limit', 500))
+                                                        val_split = params.get('val_split', 0.2),
+                                                        data_limit = params.get('data_limit', 500),
+                                                        augmentation = params.get('augmentation', False))
                 self.models.append([f"{model().name}_{type}_{f}",model, params, train_ds, val_ds, preprocess_input])
 
     def print_models(self):
@@ -36,7 +37,7 @@ class MLPipeline:
             print(f"  Validation Dataset: {model[4]}")
             print(model)
 
-    def create_datasets(self, good_paths, bad_paths, batch_size=32, img_size=(300,300), val_split=0.2, data_limit=500):
+    def create_datasets(self, good_paths, bad_paths, batch_size=32, img_size=(300,300), val_split=0.2, data_limit=500, augmentation=False):
         # Load GOOD images (label = 0)
         for i, path in enumerate(good_paths):
             good_ds_part = self.get_data(path, batch_size, img_size)
@@ -68,24 +69,23 @@ class MLPipeline:
         # Combine datasets
         dataset = good_ds.concatenate(bad_ds)
         dataset = dataset.shuffle(1000, reshuffle_each_iteration=False)
+        if(augmentation):
+            data_augmentation = tf.keras.Sequential([
+                tf.keras.layers.RandomFlip("horizontal_and_vertical"),
+                tf.keras.layers.RandomRotation(0.028),
+            ])
 
-        # Data augmentation pipeline
-        data_augmentation = tf.keras.Sequential([
-            tf.keras.layers.RandomFlip("horizontal_and_vertical"),
-            tf.keras.layers.RandomRotation(0.028),
-        ])
+            def augment(image, label):
+                return data_augmentation(image, training=True), label
 
-        def augment(image, label):
-            return data_augmentation(image, training=True), label
+            # Create augmented copy
+            augmented_ds = dataset.map(
+                augment,
+                num_parallel_calls=tf.data.AUTOTUNE
+            )
 
-        # Create augmented copy
-        augmented_ds = dataset.map(
-            augment,
-            num_parallel_calls=tf.data.AUTOTUNE
-        )
-
-        # Double dataset size
-        dataset = dataset.concatenate(augmented_ds)
+            # Double dataset size
+            dataset = dataset.concatenate(augmented_ds)
 
         # Train / validation split
         dataset_size = tf.data.experimental.cardinality(dataset).numpy()
