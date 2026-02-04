@@ -69,6 +69,15 @@ class MLPipeline:
         # Combine datasets
         dataset = good_ds.concatenate(bad_ds)
         dataset = dataset.shuffle(1000, reshuffle_each_iteration=False)
+        
+
+        # Train / validation split
+        dataset_size = tf.data.experimental.cardinality(dataset).numpy()
+        val_size = int(dataset_size * val_split)
+
+        val_ds = dataset.take(val_size)
+        train_ds = dataset.skip(val_size)
+
         if(augmentation):
             data_augmentation = tf.keras.Sequential([
                 tf.keras.layers.RandomFlip("horizontal_and_vertical"),
@@ -79,20 +88,14 @@ class MLPipeline:
                 return data_augmentation(image, training=True), label
 
             # Create augmented copy
-            augmented_ds = dataset.map(
+            augmented_ds = train_ds.map(
                 augment,
                 num_parallel_calls=tf.data.AUTOTUNE
             )
 
             # Double dataset size
-            dataset = dataset.concatenate(augmented_ds)
+            train_ds = train_ds.concatenate(augmented_ds)
 
-        # Train / validation split
-        dataset_size = tf.data.experimental.cardinality(dataset).numpy()
-        val_size = int(dataset_size * val_split)
-
-        val_ds = dataset.take(val_size)
-        train_ds = dataset.skip(val_size)
         return train_ds, val_ds
 
     def get_data(self,path_to_data, batch_size, img_size = (300,300)):
