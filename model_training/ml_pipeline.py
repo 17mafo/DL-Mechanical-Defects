@@ -14,6 +14,9 @@ class MLPipeline:
             for f in focus:
                 good_paths = [self.path_to_data + f"/processed_images/{type}/good/{f}"]
                 bad_paths = [self.path_to_data + f"/processed_images/{type}/bad/{f}"]
+                # if(augmented):
+                #     good_paths = [self.path_to_data + f"/processed_images_augmented/{type}/good/{f}"]
+                #     bad_paths = [self.path_to_data + f"/processed_images_augmented/{type}/bad/{f}"]
                 
                 train_ds, val_ds = self.create_datasets(good_paths, bad_paths,
                                                         batch_size = params.get('batch_size', 32),
@@ -64,6 +67,24 @@ class MLPipeline:
         # Combine datasets
         dataset = good_ds.concatenate(bad_ds)
         dataset = dataset.shuffle(1000, reshuffle_each_iteration=False)
+
+        # Data augmentation pipeline
+        data_augmentation = tf.keras.Sequential([
+            tf.keras.layers.RandomFlip("horizontal_and_vertical"),
+            tf.keras.layers.RandomRotation(0.028),
+        ])
+
+        def augment(image, label):
+            return data_augmentation(image, training=True), label
+
+        # Create augmented copy
+        augmented_ds = dataset.map(
+            augment,
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
+
+        # Double dataset size
+        dataset = dataset.concatenate(augmented_ds)
 
         # Train / validation split
         dataset_size = tf.data.experimental.cardinality(dataset).numpy()

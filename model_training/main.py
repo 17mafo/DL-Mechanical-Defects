@@ -21,8 +21,9 @@ def main():
                        image_type=["initial"],                       
                        focus=["1", "2"],
                        preprocess_input=ResNet50_preprocess_input,
-                       dense_units = 512,
-                       data_limit=32,
+                       dense_units = 256,
+                       data_limit=400,
+                       val_split=0.3,
                        epochs=50,
                        batch_size=32)
 
