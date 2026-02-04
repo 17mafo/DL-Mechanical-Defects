@@ -49,7 +49,7 @@ class BaseModel:
 
     def train(self, **params):
         # Return history, display graphs etc
-        callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
+        callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=params.get('patience', 5), restore_best_weights=True)
         self.model.compile(optimizer=params.get('optimizer', 'adam'), 
                            loss=params.get('loss', 'binary_crossentropy'),
                            metrics=params.get('metrics', ['accuracy']))

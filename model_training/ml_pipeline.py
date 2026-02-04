@@ -1,6 +1,7 @@
 import copy
 import tensorflow as tf
 from models.baseModel import BaseModel as bm
+import matplotlib.pyplot as plt
 
 class MLPipeline:
     def __init__(self, path_to_data):
@@ -104,11 +105,39 @@ class MLPipeline:
         )
 
     def run_pipeline(self):
+        self.hists = []
         for model in self.models:
-            mod = bm(model[0], **model[1])
-            mod.preprocess(model[2], model[3], model[4])
-            mod.train(**model[1])
+            mod = bm(model[1], **model[2])
+            mod.preprocess(model[3], model[4], model[5])
+            history = mod.train(**model[2])
             mod.summary()
+            self.hists.append([model[0], history])
+
+    def plot_histories(self):
+
+        for hist in self.hists:
+            plt.figure(figsize=(12, 4))
+            plt.subplot(1, 2, 1)
+            plt.plot(hist[1].history['loss'], label='Training Loss')
+            plt.plot(hist[1].history['val_loss'], label='Validation Loss')
+            plt.title(f'Loss for {hist[0]}')
+            plt.xlabel('Epochs')
+            plt.ylabel('Loss')
+            plt.legend()
+
+            plt.subplot(1, 2, 2)
+            plt.plot(hist[1].history['accuracy'], label='Training Accuracy')
+            plt.plot(hist[1].history['val_accuracy'], label='Validation Accuracy')
+            plt.title(f'Accuracy for {hist[0]}')
+            plt.xlabel('Epochs')
+            plt.ylabel('Accuracy')
+            plt.legend()
+            # save figure
+            plt.savefig(f"{hist[0]}_training_history.png")
+
+            # plt.show()
+
+
 
 
     
