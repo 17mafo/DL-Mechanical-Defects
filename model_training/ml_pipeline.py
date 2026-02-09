@@ -40,11 +40,11 @@ class MLPipeline:
     def create_datasets(self, good_paths, bad_paths, batch_size=32, img_size=(300,300), val_split=0.2, data_limit=500, augmentation=False):
         # Load GOOD images (label = 0)
         for i, path in enumerate(good_paths):
-            good_ds_part = self.get_data(path, batch_size, img_size)
-            good_ds_part = good_ds_part.map(
-                lambda x: (x, tf.zeros((tf.shape(x)[0], 1))),
-                num_parallel_calls=tf.data.AUTOTUNE
-            )
+            good_ds_part = self.get_data(path, label=0.0, batch_size=batch_size, img_size=img_size)
+            # good_ds_part = good_ds_part.map(
+            #     lambda x: (x, tf.zeros((tf.shape(x)[0], 1))),
+            #     num_parallel_calls=tf.data.AUTOTUNE
+            # )
             if i == 0:
                 good_ds = good_ds_part
             else:
@@ -52,11 +52,11 @@ class MLPipeline:
 
         # Load BAD images (label = 1)
         for i, path in enumerate(bad_paths):
-            bad_ds_part = self.get_data(path, batch_size, img_size)
-            bad_ds_part = bad_ds_part.map(
-                lambda x: (x, tf.ones((tf.shape(x)[0], 1))),
-                num_parallel_calls=tf.data.AUTOTUNE
-            )
+            bad_ds_part = self.get_data(path, label=1.0, batch_size=batch_size, img_size=img_size)
+            # bad_ds_part = bad_ds_part.map(
+            #     lambda x: (x, tf.ones((tf.shape(x)[0], 1))),
+            #     num_parallel_calls=tf.data.AUTOTUNE
+            # )
             if i == 0:
                 bad_ds = bad_ds_part
             else:
@@ -98,13 +98,27 @@ class MLPipeline:
 
         return train_ds, val_ds
 
-    def get_data(self,path_to_data, batch_size, img_size = (300,300)):
-        return tf.keras.utils.image_dataset_from_directory(
+    #  Old and wrong???
+    # def get_data(self,path_to_data, batch_size, img_size = (300,300)):
+    #     return tf.keras.utils.image_dataset_from_directory(
+    #         path_to_data,
+    #         image_size=img_size,
+    #         batch_size=batch_size,
+    #         label_mode=None,
+    #         shuffle=True
+    #     )
+
+    def get_data(self, path_to_data, label, batch_size, img_size=(300,300)):
+        ds = tf.keras.utils.image_dataset_from_directory(
             path_to_data,
             image_size=img_size,
             batch_size=batch_size,
             label_mode=None,
             shuffle=True
+        )
+        return ds.map(
+            lambda x: (x, tf.fill((tf.shape(x)[0], 1), label)),
+            num_parallel_calls=tf.data.AUTOTUNE
         )
 
     def run_pipeline(self):
@@ -113,7 +127,6 @@ class MLPipeline:
             mod = bm(model[1], **model[2])
             mod.preprocess(model[3], model[4], model[5])
             history = mod.train(**model[2])
-            mod.summary()
             self.hists.append([model[0], history])
 
     def plot_histories(self):

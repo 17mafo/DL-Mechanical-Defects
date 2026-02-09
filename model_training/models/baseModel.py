@@ -35,6 +35,10 @@ class BaseModel:
         self.model = Model(inputs=self.model.input, outputs=outputs)
     
     def preprocess(self, train_ds, val_ds, preprocess_input):
+
+        for x, _ in train_ds.take(1):
+            print(tf.reduce_min(x).numpy(), tf.reduce_max(x).numpy())
+
         self.train_ds = train_ds.map(
             lambda x, y: (preprocess_input(x), y),
             num_parallel_calls=tf.data.AUTOTUNE
@@ -44,6 +48,9 @@ class BaseModel:
             lambda x, y: (preprocess_input(x), y),
             num_parallel_calls=tf.data.AUTOTUNE
         ).prefetch(tf.data.AUTOTUNE)
+        
+        for x, _ in self.train_ds.take(1):
+            print(tf.reduce_min(x).numpy(), tf.reduce_max(x).numpy())
 
 
 
