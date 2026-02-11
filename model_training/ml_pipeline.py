@@ -1,7 +1,7 @@
-import copy
 import tensorflow as tf
 from models.baseModel import BaseModel as bm
 import matplotlib.pyplot as plt
+import os
 
 class MLPipeline:
     def __init__(self, path_to_data):
@@ -128,6 +128,17 @@ class MLPipeline:
             mod.preprocess(model[3], model[4], model[5])
             history = mod.train(**model[2])
             self.hists.append([model[0], history])
+            # save model
+    
+    def save_models(self):
+        for model in self.models:
+            # get path from current file
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            # if path does not exist, create it
+            if not os.path.exists(f"{current_dir}/finished_models"):
+                os.makedirs(f"{current_dir}/finished_models")
+            model[1].save(f"{current_dir}/finished_models/{model[0]}_model.h5")
+
 
     def plot_histories(self):
 
