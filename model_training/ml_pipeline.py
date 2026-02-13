@@ -18,13 +18,16 @@ class MLPipeline:
                 # if(augmented):
                 #     good_paths = [self.path_to_data + f"/processed_images_augmented/{type}/good/{f}"]
                 #     bad_paths = [self.path_to_data + f"/processed_images_augmented/{type}/bad/{f}"]
-                
+
                 train_ds, val_ds = self.create_datasets(good_paths, bad_paths,
                                                         batch_size = params.get('batch_size', 32),
                                                         img_size = params.get('img_size', (300,300)),
                                                         val_split = params.get('val_split', 0.2),
                                                         data_limit = params.get('data_limit', 500),
-                                                        augmentation = params.get('augmentation', False))
+                                                        augmentation = params.get('augmentation', False),
+                                                        cross_validation = params.get('cross_validation', False),
+                                                        k_folds = params.get('k_folds', 10))
+                
                 self.models.append([f"{model().name}_{type}_{f}",model, params, train_ds, val_ds, preprocess_input])
 
     def print_models(self):
@@ -37,7 +40,7 @@ class MLPipeline:
             print(f"  Validation Dataset: {model[4]}")
             print(model)
 
-    def create_datasets(self, good_paths, bad_paths, batch_size=32, img_size=(300,300), val_split=0.2, data_limit=500, augmentation=False):
+    def create_datasets(self, good_paths, bad_paths, batch_size=32, img_size=(300,300), val_split=0.2, data_limit=500, augmentation=False, cross_validation=False):
         # Load GOOD images (label = 0)
         for i, path in enumerate(good_paths):
             good_ds_part = self.get_data(path, label=0.0, batch_size=batch_size, img_size=img_size)
@@ -98,15 +101,6 @@ class MLPipeline:
 
         return train_ds, val_ds
 
-    #  Old and wrong???
-    # def get_data(self,path_to_data, batch_size, img_size = (300,300)):
-    #     return tf.keras.utils.image_dataset_from_directory(
-    #         path_to_data,
-    #         image_size=img_size,
-    #         batch_size=batch_size,
-    #         label_mode=None,
-    #         shuffle=True
-    #     )
 
     def get_data(self, path_to_data, label, batch_size, img_size=(300,300)):
         ds = tf.keras.utils.image_dataset_from_directory(
@@ -129,6 +123,14 @@ class MLPipeline:
             history = mod.train(**model[2])
             self.hists.append([model[0], history])
             # save model
+
+    def run_cross_validation(self, folds=10):
+        self.hists = []
+        for model in self.models:
+            mod = bm(model[1], **model[2])
+            mod.preprocess(model[3], model[4], model[5])
+            history = mod.cross_validate(folds=folds, **model[2])
+            self.hists.append([model[0], history])
     
     def save_models(self):
         for model in self.models:
