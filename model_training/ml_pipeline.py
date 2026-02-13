@@ -117,33 +117,33 @@ class MLPipeline:
     def run_pipeline(self):
         self.hists = []
 
-        for entry in self.models:
-            train_ds, val_ds = self.create_datasets(entry["good_paths"], entry["bad_paths"], **entry["params"])
+        for model in self.models:
+            train_ds, val_ds = self.create_datasets(model["good_paths"], model["bad_paths"], **model["params"])
 
-            mod = bm(entry["model_cls"], **entry["params"])
-            mod.preprocess(train_ds, val_ds, entry["preprocess"])
-            history = mod.train(**entry["params"])
+            mod = bm(model["model_cls"], **model["params"])
+            mod.preprocess(train_ds, val_ds, model["preprocess"])
+            history = mod.train(**model["params"])
 
-            self.hists.append([entry["name"], history])
+            self.hists.append([model["name"], history])
 
 
     def run_cross_validation(self, folds=10):
         self.hists = []
 
-        for entry in self.models:
+        for model in self.models:
             fold_histories = []
 
             for fold in range(folds):
-                train_ds, val_ds = self.create_datasets(entry["good_paths"],entry["bad_paths"],
-                    cross_validation=True, k_folds=folds, fold_index=fold, **entry["params"])
+                train_ds, val_ds = self.create_datasets(model["good_paths"],model["bad_paths"],
+                    cross_validation=True, k_folds=folds, fold_index=fold, **model["params"])
 
-                mod = bm(entry["model_cls"], **entry["params"])
-                mod.preprocess(train_ds, val_ds, entry["preprocess"])
+                mod = bm(model["model_cls"], **model["params"])
+                mod.preprocess(train_ds, val_ds, model["preprocess"])
 
-                history = mod.train(**entry["params"])
+                history = mod.train(**model["params"])
                 fold_histories.append(history)
 
-            self.hists.append([entry["name"], fold_histories])
+            self.hists.append([model["name"], fold_histories])
 
     
     def save_models(self):
