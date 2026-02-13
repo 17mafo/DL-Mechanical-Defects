@@ -1,6 +1,9 @@
 import tensorflow as tf
 from models.baseModel import BaseModel as bm
 import matplotlib.pyplot as plt
+from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedShuffleSplit
+import numpy as np
 import os
 
 class MLPipeline:
@@ -15,92 +18,88 @@ class MLPipeline:
             for f in focus:
                 good_paths = [self.path_to_data + f"/processed_images/{type}/good/{f}"]
                 bad_paths = [self.path_to_data + f"/processed_images/{type}/bad/{f}"]
-                # if(augmented):
-                #     good_paths = [self.path_to_data + f"/processed_images_augmented/{type}/good/{f}"]
-                #     bad_paths = [self.path_to_data + f"/processed_images_augmented/{type}/bad/{f}"]
-
-                train_ds, val_ds = self.create_datasets(good_paths, bad_paths,
-                                                        batch_size = params.get('batch_size', 32),
-                                                        img_size = params.get('img_size', (300,300)),
-                                                        val_split = params.get('val_split', 0.2),
-                                                        data_limit = params.get('data_limit', 500),
-                                                        augmentation = params.get('augmentation', False),
-                                                        cross_validation = params.get('cross_validation', False),
-                                                        k_folds = params.get('k_folds', 10))
                 
-                self.models.append([f"{model().name}_{type}_{f}",model, params, train_ds, val_ds, preprocess_input])
+                self.models.append({ "name": f"{model().name}_{type}_{f}", "model_cls": model,
+                "params": params, "good_paths": good_paths, "bad_paths": bad_paths, "preprocess": preprocess_input})
 
     def print_models(self):
         print("Current models in the pipeline:")
         for i, model in enumerate(self.models):
             print(f"Model {i+1}:")
-            print(f"  Model Name: {model[0]}")
-            print(f"  Parameters: {model[2]}")
-            print(f"  Training Dataset: {model[3]}")
-            print(f"  Validation Dataset: {model[4]}")
+            print(f"  Model Name: {model['name']}")
+            print(f"  Parameters: {model['params']}")
+            print(f"  Training Dataset: {model['good_paths']}")
+            print(f"  Validation Dataset: {model['bad_paths']}")
             print(model)
 
-    def create_datasets(self, good_paths, bad_paths, batch_size=32, img_size=(300,300), val_split=0.2, data_limit=500, augmentation=False, cross_validation=False):
-        # Load GOOD images (label = 0)
+    def create_full_dataset(self, good_paths, bad_paths,
+                            img_size=(300,300), data_limit=500):
+        
+        good_ds = None
+        bad_ds = None
+        # GOOD = 0
         for i, path in enumerate(good_paths):
-            good_ds_part = self.get_data(path, label=0.0, batch_size=batch_size, img_size=img_size)
-            # good_ds_part = good_ds_part.map(
-            #     lambda x: (x, tf.zeros((tf.shape(x)[0], 1))),
-            #     num_parallel_calls=tf.data.AUTOTUNE
-            # )
-            if i == 0:
-                good_ds = good_ds_part
+            ds_part = self.get_data(path, label=0.0, batch_size=1, img_size=img_size)
+            ds_part = ds_part.unbatch()
+            if good_ds is None:
+                good_ds = ds_part
             else:
-                good_ds = good_ds.concatenate(good_ds_part)
+                good_ds = good_ds.concatenate(ds_part)
 
-        # Load BAD images (label = 1)
+        # BAD = 1
         for i, path in enumerate(bad_paths):
-            bad_ds_part = self.get_data(path, label=1.0, batch_size=batch_size, img_size=img_size)
-            # bad_ds_part = bad_ds_part.map(
-            #     lambda x: (x, tf.ones((tf.shape(x)[0], 1))),
-            #     num_parallel_calls=tf.data.AUTOTUNE
-            # )
-            if i == 0:
-                bad_ds = bad_ds_part
+            ds_part = self.get_data(path, label=1.0, batch_size=1, img_size=img_size)
+            ds_part = ds_part.unbatch()
+            if bad_ds is None:
+                bad_ds = ds_part
             else:
-                bad_ds = bad_ds.concatenate(bad_ds_part)
+                bad_ds = bad_ds.concatenate(ds_part)
+
+        ds = good_ds.concatenate(bad_ds)
+        ds = ds.take(data_limit)
+
+        return ds
+
+
+    def create_datasets(self, good_paths, bad_paths, 
+                        batch_size=32, img_size=(300,300), 
+                        val_split=0.2, data_limit=500, 
+                        augmentation=False, cross_validation=False, k_folds=10, fold_index=0):
         
-        # Limit dataset size for testing
-        good_ds = good_ds.take(data_limit // batch_size)
-        bad_ds = bad_ds.take(data_limit // batch_size)
+        full_ds = self.create_full_dataset(good_paths, bad_paths, 
+                                           img_size=img_size, data_limit=data_limit)
 
-        # Combine datasets
-        dataset = good_ds.concatenate(bad_ds)
-        dataset = dataset.shuffle(1000, reshuffle_each_iteration=False)
-        
+        # Extract labels for stratification
+        samples = list(full_ds)
+        labels = np.array([y.numpy() for _, y in samples])
+        n = len(samples)
 
-        # Train / validation split
-        dataset_size = tf.data.experimental.cardinality(dataset).numpy()
-        val_size = int(dataset_size * val_split)
+        if cross_validation:
+            skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
+            train_idx, val_idx = list(skf.split(np.zeros(n), labels))[fold_index]
+        else:
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=val_split, random_state=42)
+            train_idx, val_idx = next(sss.split(np.zeros(n), labels))
 
-        val_ds = dataset.take(val_size)
-        train_ds = dataset.skip(val_size)
+        train_ds = tf.data.Dataset.from_tensor_slices([samples[i] for i in train_idx])
+        val_ds = tf.data.Dataset.from_tensor_slices([samples[i] for i in val_idx])
 
-        if(augmentation):
-            data_augmentation = tf.keras.Sequential([
+        if augmentation:
+            aug = tf.keras.Sequential([
                 tf.keras.layers.RandomFlip("horizontal_and_vertical"),
                 tf.keras.layers.RandomRotation(0.028),
             ])
 
-            def augment(image, label):
-                return data_augmentation(image, training=True), label
-
-            # Create augmented copy
-            augmented_ds = train_ds.map(
-                augment,
+            train_ds = train_ds.map(
+                lambda x, y: (aug(x, training=True), y),
                 num_parallel_calls=tf.data.AUTOTUNE
             )
 
-            # Double dataset size
-            train_ds = train_ds.concatenate(augmented_ds)
+        train_ds = (train_ds.shuffle(1000).batch(batch_size).prefetch(tf.data.AUTOTUNE))
+
+        val_ds = (val_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE))
 
         return train_ds, val_ds
-
 
     def get_data(self, path_to_data, label, batch_size, img_size=(300,300)):
         ds = tf.keras.utils.image_dataset_from_directory(
@@ -117,20 +116,35 @@ class MLPipeline:
 
     def run_pipeline(self):
         self.hists = []
-        for model in self.models:
-            mod = bm(model[1], **model[2])
-            mod.preprocess(model[3], model[4], model[5])
-            history = mod.train(**model[2])
-            self.hists.append([model[0], history])
-            # save model
+
+        for entry in self.models:
+            train_ds, val_ds = self.create_datasets(entry["good_paths"], entry["bad_paths"], **entry["params"])
+
+            mod = bm(entry["model_cls"], **entry["params"])
+            mod.preprocess(train_ds, val_ds, entry["preprocess"])
+            history = mod.train(**entry["params"])
+
+            self.hists.append([entry["name"], history])
+
 
     def run_cross_validation(self, folds=10):
         self.hists = []
-        for model in self.models:
-            mod = bm(model[1], **model[2])
-            mod.preprocess(model[3], model[4], model[5])
-            history = mod.cross_validate(folds=folds, **model[2])
-            self.hists.append([model[0], history])
+
+        for entry in self.models:
+            fold_histories = []
+
+            for fold in range(folds):
+                train_ds, val_ds = self.create_datasets(entry["good_paths"],entry["bad_paths"],
+                    cross_validation=True, k_folds=folds, fold_index=fold, **entry["params"])
+
+                mod = bm(entry["model_cls"], **entry["params"])
+                mod.preprocess(train_ds, val_ds, entry["preprocess"])
+
+                history = mod.train(**entry["params"])
+                fold_histories.append(history)
+
+            self.hists.append([entry["name"], fold_histories])
+
     
     def save_models(self):
         for model in self.models:
@@ -139,7 +153,7 @@ class MLPipeline:
             # if path does not exist, create it
             if not os.path.exists(f"{current_dir}/finished_models"):
                 os.makedirs(f"{current_dir}/finished_models")
-            model[1].save(f"{current_dir}/finished_models/{model[0]}_model.h5")
+            model['model_cls'].save(f"{current_dir}/finished_models/{model['name']}_model.h5")
 
 
     def plot_histories(self):
