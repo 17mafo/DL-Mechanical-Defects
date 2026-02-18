@@ -84,7 +84,7 @@ class MLPipeline:
         samples = list(full_ds)
 
         images = np.array([x.numpy() for x, _ in samples])
-        labels = np.array([y.numpy() for _, y in samples]).reshape(-1)
+        labels = np.array([tf.squeeze(y).numpy() for _, y in samples]).reshape(-1)
 
         n = len(images)
 
@@ -96,10 +96,10 @@ class MLPipeline:
             train_idx, val_idx = next(sss.split(np.zeros(n), labels))
 
         train_images = [samples[i][0] for i in train_idx]
-        train_labels = [samples[i][1] for i in train_idx]
-
         val_images = [samples[i][0] for i in val_idx]
-        val_labels = [samples[i][1] for i in val_idx]
+
+        train_labels = [tf.squeeze(samples[i][1]) for i in train_idx]
+        val_labels   = [tf.squeeze(samples[i][1]) for i in val_idx]
 
         train_ds = tf.data.Dataset.from_tensor_slices(
             (train_images, train_labels)
@@ -126,16 +126,17 @@ class MLPipeline:
 
         return train_ds, val_ds
 
-    def get_data(self, path_to_data, label, batch_size, img_size=(300,300)):
+    def get_data(self, path_to_data, label, batch_size, img_size=(300, 300)):
         ds = tf.keras.utils.image_dataset_from_directory(
             path_to_data,
             image_size=img_size,
             batch_size=batch_size,
             label_mode=None,
-            shuffle=True
+            shuffle=False
         )
+
         return ds.map(
-            lambda x: (x, tf.fill((tf.shape(x)[0], 1), label)),
+            lambda x: (x, tf.cast(tf.fill([tf.shape(x)[0]], label), tf.float32)),
             num_parallel_calls=tf.data.AUTOTUNE
         )
 
