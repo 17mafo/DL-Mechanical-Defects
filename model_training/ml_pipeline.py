@@ -34,8 +34,8 @@ class MLPipeline:
 
     def create_full_dataset(self, good_paths, bad_paths,
                         img_size=(300,300), data_limit=500):
-    
-        per_class_limit = data_limit // 2
+        
+        per_class_limit = data_limit
 
         good_ds = None
         bad_ds = None
@@ -65,13 +65,14 @@ class MLPipeline:
         cross_validation=False,
         k_folds=5,
         fold_index=0,
-        **kwargs    # <-- add this
+        **kwargs
     ):
         data_limit = kwargs.get("data_limit")
         val_split = kwargs.get("val_split", 0.2)
         batch_size = kwargs.get("batch_size", 32)
         img_size = kwargs.get("img_size", (300,300))
         augmentation = kwargs.get("augmentation", False)
+        print(augmentation)
 
         
         full_ds = self.create_full_dataset(good_paths, bad_paths, 
@@ -82,9 +83,10 @@ class MLPipeline:
 
         images = np.array([x.numpy() for x, _ in samples])
         labels = np.array([tf.squeeze(y).numpy() for _, y in samples]).reshape(-1)
-
+        print(labels)
+        print(len(labels))
         n = len(images)
-
+        print(n)
         if cross_validation:
             skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
             train_idx, val_idx = list(skf.split(np.zeros(n), labels))[fold_index]
@@ -105,22 +107,24 @@ class MLPipeline:
         val_ds = tf.data.Dataset.from_tensor_slices(
             (val_images, val_labels)
         )
-
+        print(len(train_ds), len(val_ds))
         if augmentation:
             aug = tf.keras.Sequential([
                 tf.keras.layers.RandomFlip("horizontal_and_vertical"),
                 tf.keras.layers.RandomRotation(0.028),
             ])
 
-            train_ds = train_ds.map(
+            augmented_ds = train_ds.map(
                 lambda x, y: (aug(x, training=True), y),
                 num_parallel_calls=tf.data.AUTOTUNE
             )
 
+            train_ds = train_ds.concatenate(augmented_ds)
+        print(len(train_ds), len(val_ds))
         train_ds = (train_ds.shuffle(1000).batch(batch_size).prefetch(tf.data.AUTOTUNE))
 
         val_ds = (val_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE))
-
+        print(len(train_ds), len(val_ds))
         return train_ds, val_ds
 
     def get_data(self, path_to_data, label, batch_size, img_size=(300, 300)):
