@@ -33,30 +33,27 @@ class MLPipeline:
             print(model)
 
     def create_full_dataset(self, good_paths, bad_paths,
-                            img_size=(300,300), data_limit=500):
-        
+                        img_size=(300,300), data_limit=500):
+    
+        per_class_limit = data_limit // 2
+
         good_ds = None
         bad_ds = None
-        # GOOD = 0
+
         for i, path in enumerate(good_paths):
             ds_part = self.get_data(path, label=0.0, batch_size=1, img_size=img_size)
             ds_part = ds_part.unbatch()
-            if good_ds is None:
-                good_ds = ds_part
-            else:
-                good_ds = good_ds.concatenate(ds_part)
+            good_ds = ds_part if good_ds is None else good_ds.concatenate(ds_part)
 
-        # BAD = 1
         for i, path in enumerate(bad_paths):
             ds_part = self.get_data(path, label=1.0, batch_size=1, img_size=img_size)
             ds_part = ds_part.unbatch()
-            if bad_ds is None:
-                bad_ds = ds_part
-            else:
-                bad_ds = bad_ds.concatenate(ds_part)
+            bad_ds = ds_part if bad_ds is None else bad_ds.concatenate(ds_part)
+
+        good_ds = good_ds.take(per_class_limit)
+        bad_ds = bad_ds.take(per_class_limit)
 
         ds = good_ds.concatenate(bad_ds)
-        ds = ds.take(data_limit)
 
         return ds
 
