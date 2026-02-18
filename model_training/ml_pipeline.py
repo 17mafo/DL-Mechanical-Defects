@@ -61,18 +61,32 @@ class MLPipeline:
         return ds
 
 
-    def create_datasets(self, good_paths, bad_paths, 
-                        batch_size=32, img_size=(300,300), 
-                        val_split=0.2, data_limit=500, 
-                        augmentation=False, cross_validation=False, k_folds=10, fold_index=0):
+    def create_datasets(
+        self,
+        good_paths,
+        bad_paths,
+        cross_validation=False,
+        k_folds=5,
+        fold_index=0,
+        **kwargs    # <-- add this
+    ):
+        data_limit = kwargs.get("data_limit")
+        val_split = kwargs.get("val_split", 0.2)
+        batch_size = kwargs.get("batch_size", 32)
+        img_size = kwargs.get("img_size", (300,300))
+        augmentation = kwargs.get("augmentation", False)
+
         
         full_ds = self.create_full_dataset(good_paths, bad_paths, 
                                            img_size=img_size, data_limit=data_limit)
 
         # Extract labels for stratification
         samples = list(full_ds)
-        labels = np.array([y.numpy() for _, y in samples])
-        n = len(samples)
+
+        images = np.array([x.numpy() for x, _ in samples])
+        labels = np.array([y.numpy() for _, y in samples]).reshape(-1)
+
+        n = len(images)
 
         if cross_validation:
             skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
@@ -81,8 +95,19 @@ class MLPipeline:
             sss = StratifiedShuffleSplit(n_splits=1, test_size=val_split, random_state=42)
             train_idx, val_idx = next(sss.split(np.zeros(n), labels))
 
-        train_ds = tf.data.Dataset.from_tensor_slices([samples[i] for i in train_idx])
-        val_ds = tf.data.Dataset.from_tensor_slices([samples[i] for i in val_idx])
+        train_images = [samples[i][0] for i in train_idx]
+        train_labels = [samples[i][1] for i in train_idx]
+
+        val_images = [samples[i][0] for i in val_idx]
+        val_labels = [samples[i][1] for i in val_idx]
+
+        train_ds = tf.data.Dataset.from_tensor_slices(
+            (train_images, train_labels)
+        )
+
+        val_ds = tf.data.Dataset.from_tensor_slices(
+            (val_images, val_labels)
+        )
 
         if augmentation:
             aug = tf.keras.Sequential([
@@ -127,7 +152,7 @@ class MLPipeline:
             self.hists.append([model["name"], history])
 
 
-    def run_cross_validation(self, folds=10):
+    def run_cross_validation(self, folds=5):
         self.hists = []
 
         for model in self.models:
@@ -179,6 +204,60 @@ class MLPipeline:
             plt.savefig(f"{hist[0]}_training_history.png")
 
             # plt.show()
+
+    def plot_cross_validation_results(self):
+        for hist in self.hists:
+            fold_histories = hist[1]
+
+            # Samla data från alla folds
+            val_losses = np.array([h.history['val_loss'] for h in fold_histories])
+            val_accs = np.array([h.history['val_accuracy'] for h in fold_histories])
+
+            # Medelvärde och standardavvikelse per epoch
+            avg_val_loss = np.mean(val_losses, axis=0)
+            std_val_loss = np.std(val_losses, axis=0)
+
+            avg_val_acc = np.mean(val_accs, axis=0)
+            std_val_acc = np.std(val_accs, axis=0)
+
+            epochs = range(len(avg_val_loss))
+
+            plt.figure(figsize=(12, 4))
+
+            # --- Validation Loss ---
+            plt.subplot(1, 2, 1)
+            plt.plot(epochs, avg_val_loss, label='Mean Validation Loss')
+            plt.fill_between(
+                epochs,
+                avg_val_loss - std_val_loss,
+                avg_val_loss + std_val_loss,
+                alpha=0.3,
+                label='±1 std'
+            )
+            plt.title(f'Validation Loss (mean ± std) for {hist[0]}')
+            plt.xlabel('Epochs')
+            plt.ylabel('Loss')
+            plt.legend()
+
+            # --- Validation Accuracy ---
+            plt.subplot(1, 2, 2)
+            plt.plot(epochs, avg_val_acc, label='Mean Validation Accuracy')
+            plt.fill_between(
+                epochs,
+                avg_val_acc - std_val_acc,
+                avg_val_acc + std_val_acc,
+                alpha=0.3,
+                label='±1 std'
+            )
+            plt.title(f'Validation Accuracy (mean ± std) for {hist[0]}')
+            plt.xlabel('Epochs')
+            plt.ylabel('Accuracy')
+            plt.legend()
+
+            plt.tight_layout()
+            plt.savefig(f"{hist[0]}_cross_validation_results.png")
+            plt.close()
+
 
 
 
