@@ -156,7 +156,9 @@ class MLPipeline:
 
             df = pd.DataFrame(history.history)
             df.index.name = "epoch"
-            df.to_csv(f"{model['name']}_hist.csv", index=True)
+            if not os.path.exists("histories"):
+                os.makedirs("histories")
+            df.to_csv(f"histories/{model['name']}_hist.csv", index=True)
 
 
     def run_cross_validation(self, folds=5):
@@ -189,8 +191,9 @@ class MLPipeline:
             mean_row = df.mean(numeric_only=True)
             mean_row.name = "mean"
             df = pd.concat([df, mean_row.to_frame().T])
-
-            df.to_csv(f"{model['name']}_cv_hist.csv")
+            if not os.path.exists("cv_histories"):
+                os.makedirs("cv_histories")
+            df.to_csv(f"cv_histories/{model['name']}_cv_hist.csv")
 
             self.hists.append([model["name"], fold_histories])
             
@@ -225,8 +228,10 @@ class MLPipeline:
             plt.xlabel('Epochs')
             plt.ylabel('Accuracy')
             plt.legend()
-            # save figure
-            plt.savefig(f"{hist[0]}_training_history.png")
+            # save figure but in folder /plots if it does not exist, create it
+            if not os.path.exists("plots"):
+                os.makedirs("plots")
+            plt.savefig(f"plots/{hist[0]}_training_history.png")
 
             
 
@@ -282,7 +287,10 @@ class MLPipeline:
             plt.legend()
 
             plt.tight_layout()
-            plt.savefig(f"{hist[0]}_cross_validation_results.png")
+
+            if not os.path.exists("cv_plots"):
+                os.makedirs("cv_plots")
+            plt.savefig(f"cv_plots/{hist[0]}_cross_validation_results.png")
             plt.close()
 
 
