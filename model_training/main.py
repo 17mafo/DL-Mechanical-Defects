@@ -24,7 +24,7 @@ from tensorflow.keras.applications.resnet_v2 import preprocess_input as ResNet15
 
 # preprocess input function for ResNet50
 
-def main(gpu_index=None):
+def main(data_path = None, gpu_index=None):
     # Set GPU if specified, for example python main.py --gpu 0
     if gpu_index is not None:
         gpus = tf.config.list_physical_devices('GPU')
@@ -35,8 +35,9 @@ def main(gpu_index=None):
         else:
             tf.config.set_visible_devices(gpus[gpu_index], 'GPU')
             print(f"Using GPU {gpu_index}: {gpus[gpu_index]}")
+    if data_path is not None:
+        path_to_data = data_path
 
-    path_to_data = "/mnt/c/Users/Marti/Documents/DL-Mechanical-Defects/dataset_creation"
     pipeline = MLPipeline(path_to_data)
     pipeline_cv = MLPipeline(path_to_data)
 
@@ -116,6 +117,7 @@ def main(gpu_index=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train ML models with GPU selection')
     parser.add_argument('--gpu', type=int, default=None, help='GPU index to use (e.g., 0, 1, 2...)')
+    parser.add_argument('--data_path', type=str, default=None, help='Path to the dataset')
     args = parser.parse_args()
     
-    main(gpu_index=args.gpu)
+    main(data_path=args.data_path, gpu_index=args.gpu)
