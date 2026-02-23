@@ -3,6 +3,7 @@ from models.baseModel import BaseModel as bm
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import StratifiedShuffleSplit
+import pandas as pd
 import numpy as np
 import os
 
@@ -153,12 +154,17 @@ class MLPipeline:
 
             self.hists.append([model["name"], history])
 
+            df = pd.DataFrame(history.history)
+            df.index.name = "epoch"
+            df.to_csv(f"{model['name']}_hist.csv", index=True)
+
 
     def run_cross_validation(self, folds=5):
         self.hists = []
 
         for model in self.models:
             fold_histories = []
+            fold_rows = []
 
             for fold in range(folds):
                 train_ds, val_ds = self.create_datasets(model["good_paths"],model["bad_paths"],
@@ -170,7 +176,24 @@ class MLPipeline:
                 history = mod.train(**model["params"])
                 fold_histories.append(history)
 
+                # calc average of metrics and save
+                avg_metrics = {metric: float(np.mean(values))
+                              for metric, values in history.history.items()}
+
+                avg_metrics["fold"] = fold
+                fold_rows.append(avg_metrics)
+
+            df = pd.DataFrame(fold_rows).set_index("fold")
+
+            # mean across folds
+            mean_row = df.mean(numeric_only=True)
+            mean_row.name = "mean"
+            df = pd.concat([df, mean_row.to_frame().T])
+
+            df.to_csv(f"{model['name']}_cv_hist.csv")
+
             self.hists.append([model["name"], fold_histories])
+            
 
     
     def save_models(self):
@@ -204,6 +227,8 @@ class MLPipeline:
             plt.legend()
             # save figure
             plt.savefig(f"{hist[0]}_training_history.png")
+
+            
 
             # plt.show()
 
