@@ -35,8 +35,14 @@ def main(data_path = None, gpu_index=None):
         else:
             tf.config.set_visible_devices(gpus[gpu_index], 'GPU')
             print(f"Using GPU {gpu_index}: {gpus[gpu_index]}")
+    
+    # Check what device TensorFlow will actually use
+    device = "/GPU:0" if tf.config.list_logical_devices('GPU') else "/CPU:0"
+    print(f"Running using: {device}")
+    
     if data_path is not None:
         path_to_data = data_path
+
 
     pipeline = MLPipeline(path_to_data)
     pipeline_cv = MLPipeline(path_to_data)
