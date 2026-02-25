@@ -59,7 +59,7 @@ def main(data_path = None, gpu_index=None):
     # augmentation : True
 
     pipeline.add_model(ResNet152V2, 
-                       image_type=["initial","background","outer_rim"],                       
+                       image_type=["initial"],                       
                        focus=["1", "2"],
                        preprocess_input=ResNet152V2_preprocess_input,
                        dense_units = 256,
@@ -69,29 +69,29 @@ def main(data_path = None, gpu_index=None):
                        batch_size=32,
                        augmentation=True,)
     
-    pipeline.add_model(VGG19, 
-                       image_type=["initial","background","outer_rim"],                       
-                       focus=["1", "2"],
-                       preprocess_input=VGG19_preprocess_input,
-                       dense_units = 256,
-                       data_limit=700,
-                       val_split=0.3,
-                       epochs=50,
-                       batch_size=32,
-                       augmentation=True,)
+    # pipeline.add_model(VGG19, 
+    #                    image_type=["initial","background","outer_rim"],                       
+    #                    focus=["1", "2"],
+    #                    preprocess_input=VGG19_preprocess_input,
+    #                    dense_units = 256,
+    #                    data_limit=700,
+    #                    val_split=0.3,
+    #                    epochs=50,
+    #                    batch_size=32,
+    #                    augmentation=True,)
 
 
-    pipeline.add_model(EfficientNetV2B3, 
-                       image_type=["initial","background","outer_rim"],                       
-                       focus=["1", "2"],
-                       preprocess_input=EfficientNetV2B3_preprocess_input,
-                       dense_units = 256,
-                       data_limit=700,
-                       val_split=0.3,
-                       epochs=50,
-                       batch_size=32,
-                       augmentation=True,
-                       include_preprocessing=True)
+    # pipeline.add_model(EfficientNetV2B3, 
+    #                    image_type=["initial","background","outer_rim"],                       
+    #                    focus=["1", "2"],
+    #                    preprocess_input=EfficientNetV2B3_preprocess_input,
+    #                    dense_units = 256,
+    #                    data_limit=700,
+    #                    val_split=0.3,
+    #                    epochs=50,
+    #                    batch_size=32,
+    #                    augmentation=True,
+    #                    include_preprocessing=True)
 
     # pipeline.print_models()
 

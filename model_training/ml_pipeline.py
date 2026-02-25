@@ -160,6 +160,28 @@ class MLPipeline:
                 os.makedirs("histories")
             df.to_csv(f"histories/{model['name']}_hist.csv", index=True)
 
+            # Plot history for the model
+            plt.figure(figsize=(12, 4))
+            plt.subplot(1, 2, 1)
+            plt.plot(history['loss'], label='Training Loss')
+            plt.plot(history['val_loss'], label='Validation Loss')
+            plt.title(f'Loss for {model["name"]}')
+            plt.xlabel('Epochs')
+            plt.ylabel('Loss')
+            plt.legend()
+
+            plt.subplot(1, 2, 2)
+            plt.plot(history['accuracy'], label='Training Accuracy')
+            plt.plot(history['val_accuracy'], label='Validation Accuracy')
+            plt.title(f'Accuracy for {model["name"]}')
+            plt.xlabel('Epochs')
+            plt.ylabel('Accuracy')
+            plt.legend()
+            # save figure but in folder /plots if it does not exist, create it
+            if not os.path.exists("plots"):
+                os.makedirs("plots")
+            plt.savefig(f"plots/{model['name']}_training_history.png")
+
 
     def run_cross_validation(self, folds=5):
         self.hists = []
