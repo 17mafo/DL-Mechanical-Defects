@@ -2,6 +2,27 @@ import tensorflow as tf
 from tensorflow.keras import layers, Model, Input
 
 
+class BinaryF1Score(tf.keras.metrics.Metric):
+    def __init__(self, name='f1', threshold=0.5, **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.threshold = threshold
+        self.precision_metric = tf.keras.metrics.Precision(thresholds=threshold)
+        self.recall_metric = tf.keras.metrics.Recall(thresholds=threshold)
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        self.precision_metric.update_state(y_true, y_pred, sample_weight)
+        self.recall_metric.update_state(y_true, y_pred, sample_weight)
+
+    def result(self):
+        precision = self.precision_metric.result()
+        recall = self.recall_metric.result()
+        return 2.0 * ((precision * recall) / (precision + recall + tf.keras.backend.epsilon()))
+
+    def reset_state(self):
+        self.precision_metric.reset_state()
+        self.recall_metric.reset_state()
+
+
 class BaseModel:
     def __init__(self, model, make2_dense=False, two_inputs=False, **params):
 
@@ -68,19 +89,60 @@ class BaseModel:
             num_parallel_calls=tf.data.AUTOTUNE
         ).prefetch(tf.data.AUTOTUNE)
 
+    def _build_metrics(self, metrics, threshold=0.5):
+        metrics = list(metrics) if metrics is not None else ['accuracy']
+
+        metric_names = set()
+        for metric in metrics:
+            if isinstance(metric, str):
+                metric_names.add(metric.lower())
+            else:
+                metric_names.add(metric.name.lower())
+
+        if 'precision' not in metric_names:
+            metrics.append(tf.keras.metrics.Precision(name='precision', thresholds=threshold))
+        if 'recall' not in metric_names:
+            metrics.append(tf.keras.metrics.Recall(name='recall', thresholds=threshold))
+        if 'f1' not in metric_names:
+            metrics.append(BinaryF1Score(name='f1', threshold=threshold))
+
+        return metrics
+
 
 
     def train(self, **params):
         # Return history, display graphs etc
-        callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=params.get('patience', 5), restore_best_weights=True)
+        callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss",
+                                                    mode="min",
+                                                    patience=params.get('patience', 15),
+                                                    min_delta=0.001,
+                                                    restore_best_weights=True,
+                                                    verbose=1
+)
+        callbacks = [callback]
+
+        if params.get('saveModelCheckpoint', False):
+            checkpoint = tf.keras.callbacks.ModelCheckpoint(
+                filepath=params.get('checkpoint_path', 'best_model.h5'),
+                save_best_only=True,
+                monitor="val_loss",
+                mode="min",
+                verbose=1
+            )
+            callbacks.append(checkpoint)
+
+        metrics = self._build_metrics(
+            params.get('metrics', ['accuracy']),
+            threshold=params.get('metric_threshold', 0.5)
+        )
         self.model.compile(optimizer=params.get('optimizer', 'adam'), 
                            loss=params.get('loss', 'binary_crossentropy'),
-                           metrics=params.get('metrics', ['accuracy']))
+                           metrics=metrics)
         # Lägg till early stopping (Spara den bästa)
         self.history = self.model.fit(self.train_ds, 
                        validation_data=self.val_ds,
                        epochs=params.get('epochs', 50),
-                       callbacks=[callback])
+                       callbacks=callbacks)
         
         return self.history
 
