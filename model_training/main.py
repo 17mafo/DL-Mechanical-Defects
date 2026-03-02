@@ -88,7 +88,8 @@ def main(data_path = None, gpu_index=None):
                        val_split=0.3,
                        epochs=50,
                        batch_size=32,
-                       augmentation=True,)
+                       augmentation=True,
+                       saveModelCheckpoint=False,)
     
     
     # pipeline.add_model(VGG19, 
@@ -127,20 +128,21 @@ def main(data_path = None, gpu_index=None):
     pipeline.plot_cross_validation_results()
 
 
-    # pipeline_cv.add_model(ResNet152V2, 
-    #                    image_type=["initial"],                       
-    #                    focus=["1", "2"],
-    #                    preprocess_input=ResNet152V2_preprocess_input,
-    #                    dense_units = 256,
-    #                    data_limit=700,
-    #                    val_split=0,
-    #                    epochs=50,
-    #                    batch_size=32,
-    #                    augmentation=True,)
-    # pipeline_cv.run_cross_validation(folds=5)
-    # pipeline_cv.plot_cross_validation_results()
-    # pipeline_cv.run_pipeline() # Train on all data after cross validation
-    # pipeline_cv.plot_histories()
+    pipeline_cv.add_model(ResNet50, 
+                       image_type=["initial"],                       
+                       focus=["1", "2"],
+                       preprocess_input=ResNet50_preprocess_input,
+                       dense_units = 256,
+                       data_limit=700,
+                       val_split=0,
+                       epochs=50,
+                       batch_size=32,
+                       augmentation=True,
+                       saveModelCheckpoint=False,)
+    pipeline_cv.run_cross_validation(folds=5)
+    pipeline_cv.plot_cross_validation_results()
+    pipeline_cv.run_pipeline() # Train on all data after cross validation
+    pipeline_cv.plot_histories()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train ML models with GPU selection')

@@ -103,6 +103,18 @@ class BaseModel:
                                                     restore_best_weights=True,
                                                     verbose=1
 )
+        callbacks = [callback]
+
+        if params.get('saveModelCheckpoint', False):
+            checkpoint = tf.keras.callbacks.ModelCheckpoint(
+                filepath=params.get('checkpoint_path', 'best_model.h5'),
+                save_best_only=True,
+                monitor="val_loss",
+                mode="min",
+                verbose=1
+            )
+            callbacks.append(checkpoint)
+
         metrics = self._build_metrics(
             params.get('metrics', ['accuracy']),
             threshold=params.get('metric_threshold', 0.5)
@@ -114,7 +126,7 @@ class BaseModel:
         self.history = self.model.fit(self.train_ds, 
                        validation_data=self.val_ds,
                        epochs=params.get('epochs', 50),
-                       callbacks=[callback])
+                       callbacks=callbacks)
         
         return self.history
 
