@@ -101,13 +101,13 @@ class MLPipeline:
         train_labels = [tf.squeeze(samples[i][1]) for i in train_idx]
         val_labels   = [tf.squeeze(samples[i][1]) for i in val_idx]
 
-        train_ds = tf.data.Dataset.from_tensor_slices(
-            (train_images, train_labels)
-        )
-
-        val_ds = tf.data.Dataset.from_tensor_slices(
-            (val_images, val_labels)
-        )
+        if kwargs.get("two_inputs", False):
+            train_ds = tf.data.Dataset.from_tensor_slices(((train_images, train_images), train_labels))
+            val_ds = tf.data.Dataset.from_tensor_slices(((val_images, val_images), val_labels))
+        else:
+            train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
+            val_ds = tf.data.Dataset.from_tensor_slices((val_images, val_labels))
+        
         print(len(train_ds), len(val_ds))
         if augmentation:
             aug = tf.keras.Sequential([
@@ -115,8 +115,17 @@ class MLPipeline:
                 tf.keras.layers.RandomRotation(0.028),
             ])
 
+            def augment_fn(x, y):
+                # two-input case
+                if isinstance(x, (tuple, list)):
+                    x1, x2 = x
+                    return (aug(x1, training=True), aug(x2, training=True)), y
+                # single-input case
+                else:
+                    return aug(x, training=True), y
+
             augmented_ds = train_ds.map(
-                lambda x, y: (aug(x, training=True), y),
+                augment_fn,
                 num_parallel_calls=tf.data.AUTOTUNE
             )
 
@@ -149,6 +158,7 @@ class MLPipeline:
             train_ds, val_ds = self.create_datasets(model["good_paths"], model["bad_paths"], **model["params"])
 
             mod = bm(model["model_cls"], **model["params"])
+            
             mod.preprocess(train_ds, val_ds, model["preprocess"])
             history = mod.train(**model["params"])
 
