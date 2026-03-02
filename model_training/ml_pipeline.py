@@ -264,16 +264,27 @@ class MLPipeline:
         for hist in self.hists:
             fold_histories = hist[1]
 
-            # Samla data från alla folds
-            val_losses = np.array([h.history['val_loss'] for h in fold_histories])
-            val_accs = np.array([h.history['val_accuracy'] for h in fold_histories])
+            # Samla data från alla folds (kan ha olika längd p.g.a. early stopping)
+            val_loss_lists = [h.history['val_loss'] for h in fold_histories]
+            val_acc_lists = [h.history['val_accuracy'] for h in fold_histories]
+
+            max_epochs = max(len(values) for values in val_loss_lists)
+
+            val_losses = np.full((len(val_loss_lists), max_epochs), np.nan, dtype=np.float32)
+            val_accs = np.full((len(val_acc_lists), max_epochs), np.nan, dtype=np.float32)
+
+            for i, values in enumerate(val_loss_lists):
+                val_losses[i, :len(values)] = values
+
+            for i, values in enumerate(val_acc_lists):
+                val_accs[i, :len(values)] = values
 
             # Medelvärde och standardavvikelse per epoch
-            avg_val_loss = np.mean(val_losses, axis=0)
-            std_val_loss = np.std(val_losses, axis=0)
+            avg_val_loss = np.nanmean(val_losses, axis=0)
+            std_val_loss = np.nanstd(val_losses, axis=0)
 
-            avg_val_acc = np.mean(val_accs, axis=0)
-            std_val_acc = np.std(val_accs, axis=0)
+            avg_val_acc = np.nanmean(val_accs, axis=0)
+            std_val_acc = np.nanstd(val_accs, axis=0)
 
             epochs = range(len(avg_val_loss))
 
