@@ -15,13 +15,34 @@ class MLPipeline:
 
     def add_model(self, model, image_type, focus, preprocess_input, **params):
         # Create model instances for each image_type and focus combination
-        for type in image_type:
-            for f in focus:
-                good_paths = [self.path_to_data + f"/processed_images/{type}/good/{f}"]
-                bad_paths = [self.path_to_data + f"/processed_images/{type}/bad/{f}"]
-                
-                self.models.append({ "name": f"{model().name}_{type}_{f}", "model_cls": model,
-                "params": params, "good_paths": good_paths, "bad_paths": bad_paths, "preprocess": preprocess_input})
+        for t in image_type:
+            if params.get("two_inputs", False):
+                # for a two‑input network we want one entry containing
+                # *all* focus folders – the pairing logic lives in
+                # create_full_dataset/create_image_pairs.
+                good_paths = [self.path_to_data + f"/processed_images/{t}/good/{f}" for f in focus]
+                bad_paths = []
+                for f in focus:
+                    bad_paths.append(self.path_to_data + f"/processed_images/{t}/bad/{f}")
+                    bad_paths.append(self.path_to_data + f"/processed_images/{t}/bad_but_looks_good/{f}")
+                name = f"{model().name}_{t}_{'_'.join(focus)}"
+                self.models.append({"name": name,
+                                    "model_cls": model,
+                                    "params": params,
+                                    "good_paths": good_paths,
+                                    "bad_paths": bad_paths,
+                                    "preprocess": preprocess_input,})
+
+            else:
+                for f in focus:
+                    good_paths = [self.path_to_data + f"/processed_images/{t}/good/{f}"]
+                    bad_paths = [self.path_to_data + f"/processed_images/{t}/bad/{f}"]
+                    self.models.append({"name": f"{model().name}_{t}_{f}",
+                                        "model_cls": model,
+                                        "params": params,
+                                        "good_paths": good_paths,
+                                        "bad_paths": bad_paths,
+                                        "preprocess": preprocess_input,})
 
     def print_models(self):
         print("Current models in the pipeline:")
@@ -34,29 +55,101 @@ class MLPipeline:
             print(model)
 
     def create_full_dataset(self, good_paths, bad_paths,
-                        img_size=(300,300), data_limit=500):
+                        img_size=(300,300), data_limit=500, two_inputs=False):
         
         per_class_limit = data_limit
 
-        good_ds = None
-        bad_ds = None
+        if two_inputs:
+        # For two-input model: pair images from focus 1 and focus 2
+            good_pairs = self.create_image_pairs(good_paths, img_size, label=0.0)
+            bad_pairs = self.create_image_pairs(bad_paths, img_size, label=1.0)
+            
+            good_pairs = good_pairs.take(per_class_limit)
+            bad_pairs = bad_pairs.take(per_class_limit)
+            
+            ds = good_pairs.concatenate(bad_pairs)
+        else:
 
-        for i, path in enumerate(good_paths):
-            ds_part = self.get_data(path, label=0.0, batch_size=1, img_size=img_size)
-            ds_part = ds_part.unbatch()
-            good_ds = ds_part if good_ds is None else good_ds.concatenate(ds_part)
+            good_ds = None
+            bad_ds = None
 
-        for i, path in enumerate(bad_paths):
-            ds_part = self.get_data(path, label=1.0, batch_size=1, img_size=img_size)
-            ds_part = ds_part.unbatch()
-            bad_ds = ds_part if bad_ds is None else bad_ds.concatenate(ds_part)
+            for i, path in enumerate(good_paths):
+                ds_part = self.get_data(path, label=0.0, batch_size=1, img_size=img_size)
+                ds_part = ds_part.unbatch()
+                good_ds = ds_part if good_ds is None else good_ds.concatenate(ds_part)
 
-        good_ds = good_ds.take(per_class_limit)
-        bad_ds = bad_ds.take(per_class_limit)
+            for i, path in enumerate(bad_paths):
+                ds_part = self.get_data(path, label=1.0, batch_size=1, img_size=img_size)
+                ds_part = ds_part.unbatch()
+                bad_ds = ds_part if bad_ds is None else bad_ds.concatenate(ds_part)
 
-        ds = good_ds.concatenate(bad_ds)
+            good_ds = good_ds.take(per_class_limit)
+            bad_ds = bad_ds.take(per_class_limit)
+
+            ds = good_ds.concatenate(bad_ds)
 
         return ds
+    
+    def create_image_pairs(self, paths, img_size=(300, 300), label=None):
+    
+        import os
+        
+        images_by_focus = {}
+        
+        for path in paths:
+            if not os.path.exists(path):
+                continue
+                
+            focus_num = os.path.basename(path)  # Extract "1" or "2"
+            images = {}
+            
+            for img_file in os.listdir(path):
+                if img_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    img_path = os.path.join(path, img_file)
+                    try:
+                        img = tf.keras.preprocessing.image.load_img(img_path, target_size=img_size)
+                        img_array = tf.keras.preprocessing.image.img_to_array(img)
+                        images[img_file] = img_array
+                    except Exception as e:
+                        print(f"Error loading {img_path}: {e}")
+                        continue
+            
+            if focus_num not in images_by_focus:
+                images_by_focus[focus_num] = {}
+            
+            # Merge images from this path into the focus dictionary
+            images_by_focus[focus_num].update(images)
+        
+        # Pair images by filename across focuses
+        paired_images = []
+        focus_keys = sorted(images_by_focus.keys())
+        
+        if len(focus_keys) >= 2:
+            focus1_images = images_by_focus[focus_keys[0]]
+            focus2_images = images_by_focus[focus_keys[1]]
+            
+            # Match pairs by filename - only include if both focuses have the image
+            common_files = set(focus1_images.keys()) & set(focus2_images.keys())
+            
+            for fname in sorted(common_files):
+                paired_images.append((
+                    (focus1_images[fname], focus2_images[fname]),
+                    label if label is not None else 1.0
+                ))
+                # print(f"Paired image: {fname} from focus {focus_keys[0]} and {focus_keys[1]}")
+
+        
+        if not paired_images:
+            raise ValueError(f"No matching image pairs found in paths: {paths}")
+        
+        return tf.data.Dataset.from_generator(
+            lambda: iter(paired_images),
+            output_signature=(
+                (tf.TensorSpec(shape=(img_size[0], img_size[1], 3), dtype=tf.float32),
+                tf.TensorSpec(shape=(img_size[0], img_size[1], 3), dtype=tf.float32)),
+                tf.TensorSpec(shape=(), dtype=tf.float32)
+            )
+        )
 
 
     def create_datasets(
@@ -73,40 +166,53 @@ class MLPipeline:
         batch_size = kwargs.get("batch_size", 32)
         img_size = kwargs.get("img_size", (300,300))
         augmentation = kwargs.get("augmentation", False)
+        two_inputs = kwargs.get("two_inputs", False)
         print(augmentation)
 
         
-        full_ds = self.create_full_dataset(good_paths, bad_paths, 
-                                           img_size=img_size, data_limit=data_limit)
+        full_ds = self.create_full_dataset(
+            good_paths, bad_paths, img_size=img_size, data_limit=data_limit, two_inputs=two_inputs
+        )
 
         # Extract labels for stratification
         samples = list(full_ds)
 
-        images = np.array([x.numpy() for x, _ in samples])
-        labels = np.array([tf.squeeze(y).numpy() for _, y in samples]).reshape(-1)
+        if two_inputs:
+            # x is a tuple (img1, img2)
+            images_a = np.stack([x[0].numpy() for x, _ in samples])
+            images_b = np.stack([x[1].numpy() for x, _ in samples])
+            labels = np.array([y.numpy() for _, y in samples]).reshape(-1)
+            print("Two-input dataset shapes:")
+            print(images_a.shape, images_b.shape)
+        else:
+            images_a = np.stack([x.numpy() for x, _ in samples])
+            images_b = None
+            labels = np.array([y.numpy() for _, y in samples]).reshape(-1)
+
+
         print(labels)
         print(len(labels))
-        n = len(images)
+        n = len(images_a)
         print(n)
         if cross_validation:
-            skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
-            train_idx, val_idx = list(skf.split(np.zeros(n), labels))[fold_index]
+                skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
+                train_idx, val_idx = list(skf.split(np.zeros(n), labels))[fold_index]
         else:
             sss = StratifiedShuffleSplit(n_splits=1, test_size=val_split, random_state=42)
             train_idx, val_idx = next(sss.split(np.zeros(n), labels))
 
-        train_images = [samples[i][0] for i in train_idx]
-        val_images = [samples[i][0] for i in val_idx]
-
-        train_labels = [tf.squeeze(samples[i][1]) for i in train_idx]
-        val_labels   = [tf.squeeze(samples[i][1]) for i in val_idx]
-
-        if kwargs.get("two_inputs", False):
-            train_ds = tf.data.Dataset.from_tensor_slices(((train_images, train_images), train_labels))
-            val_ds = tf.data.Dataset.from_tensor_slices(((val_images, val_images), val_labels))
+        if two_inputs:
+            train_images = (images_a[train_idx], images_b[train_idx])
+            val_images = (images_a[val_idx], images_b[val_idx])
         else:
-            train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
-            val_ds = tf.data.Dataset.from_tensor_slices((val_images, val_labels))
+            train_images = images_a[train_idx]
+            val_images = images_a[val_idx]
+
+        train_labels = labels[train_idx]
+        val_labels   = labels[val_idx]
+
+        train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
+        val_ds = tf.data.Dataset.from_tensor_slices((val_images, val_labels))
         
         print(len(train_ds), len(val_ds))
         if augmentation:
