@@ -207,8 +207,12 @@ class MLPipeline:
             train_images = images_a[train_idx]
             val_images = images_a[val_idx]
 
+
         train_labels = labels[train_idx]
         val_labels   = labels[val_idx]
+
+        del images_a, images_b, labels, samples
+        gc.collect()
 
         train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
         val_ds = tf.data.Dataset.from_tensor_slices((val_images, val_labels))
@@ -270,6 +274,10 @@ class MLPipeline:
 
             self.hists.append([model["name"], history])
 
+            del mod, train_ds, val_ds
+            tf.keras.backend.clear_session()
+            gc.collect()
+
             df = pd.DataFrame(history.history)
             df.index.name = "epoch"
             if not os.path.exists("histories"):
@@ -320,6 +328,12 @@ class MLPipeline:
                 history = mod.train(**model["params"])
                 fold_histories.append(history)
 
+                del mod
+                del train_ds
+                del val_ds
+                tf.keras.backend.clear_session()
+                gc.collect()
+
                 # calc average of metrics and save
                 avg_metrics = {metric: float(np.mean(values))
                               for metric, values in history.history.items()}
@@ -340,6 +354,8 @@ class MLPipeline:
             df.to_csv(f"cv_histories/{model['name']}_cv_hist.csv")
 
             self.hists.append([model["name"], fold_histories])
+
+
             
 
     
