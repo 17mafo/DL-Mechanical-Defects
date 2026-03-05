@@ -55,66 +55,68 @@ def main(data_path = None, gpu_index=None):
 
 
     pipeline = MLPipeline(path_to_data)
-    pipeline_cv = MLPipeline(path_to_data)
 
     # Example of adding a model to the pipeline
 
     # params include (Default values):
     # dense_units : 32
     # data_limit : 32
-    # batch_size : 32
+    # batch_size : 16
     # img_size : (300,300)
     # val_split : 0.2
     # epochs : 10ls
     # augmentation : True
 
-    # pipeline.add_model(ResNet152V2, 
+    # pipeline.add_model(ResNet50V2, 
     #                    image_type=["initial"],                       
     #                    focus=["1", "2"],
-    #                    preprocess_input=ResNet152V2_preprocess_input,
+    #                    preprocess_input=ResNet50V2_preprocess_input,
     #                    dense_units = 256,
     #                    data_limit=700,
     #                    val_split=0.3,
     #                    epochs=50,
-    #                    batch_size=32,
+    #                    batch_size=16,
+    #                    two_inputs=True,
+    #                    augmentation=True,)
+
+    # pipeline.add_model(ResNet50V2, 
+    #                    image_type=["initial"],                       
+    #                    focus=["1", "2"],
+    #                    preprocess_input=ResNet50V2_preprocess_input,
+    #                    dense_units = 256,
+    #                    data_limit=700,
+    #                    val_split=0.3,
+    #                    epochs=50,
+    #                    batch_size=16,
     #                    augmentation=True,)
     
-    pipeline.add_model(ResNet50, 
+    
+    
+    pipeline.add_model(VGG19, 
                        image_type=["initial"],                       
                        focus=["1", "2"],
-                       preprocess_input=ResNet50_preprocess_input,
+                       preprocess_input=VGG19_preprocess_input,
                        dense_units = 256,
                        data_limit=700,
                        val_split=0.3,
                        epochs=50,
-                       batch_size=32,
+                       batch_size=16,
+                       augmentation=True,
+                       two_inputs=True,
+                       saveModelCheckpoint=False,)
+    
+    pipeline.add_model(VGG19, 
+                       image_type=["initial"],                       
+                       focus=["1", "2"],
+                       preprocess_input=VGG19_preprocess_input,
+                       dense_units = 256,
+                       data_limit=700,
+                       val_split=0.3,
+                       epochs=50,
+                       batch_size=16,
                        augmentation=True,
                        saveModelCheckpoint=False,)
     
-    
-    # pipeline.add_model(VGG19, 
-    #                    image_type=["initial","background","outer_rim"],                       
-    #                    focus=["1", "2"],
-    #                    preprocess_input=VGG19_preprocess_input,
-    #                    dense_units = 256,
-    #                    data_limit=700,
-    #                    val_split=0.3,
-    #                    epochs=50,
-    #                    batch_size=32,
-    #                    augmentation=True,)
-
-
-    # pipeline.add_model(EfficientNetV2L, 
-    #                    image_type=["initial","background"],                       
-    #                    focus=["1","2"],
-    #                    preprocess_input=EfficientNetV2L_preprocess_input,
-    #                    dense_units = 256,
-    #                    data_limit=700,
-    #                    val_split=0.3,
-    #                    epochs=50,
-    #                    batch_size=32,
-    #                    augmentation=True,
-    #                    include_preprocessing=True)
 
     # pipeline.print_models()
 
@@ -127,22 +129,6 @@ def main(data_path = None, gpu_index=None):
     pipeline.run_cross_validation(folds=5)
     pipeline.plot_cross_validation_results()
 
-
-    pipeline_cv.add_model(ResNet50, 
-                       image_type=["initial"],                       
-                       focus=["1", "2"],
-                       preprocess_input=ResNet50_preprocess_input,
-                       dense_units = 256,
-                       data_limit=700,
-                       val_split=0,
-                       epochs=50,
-                       batch_size=32,
-                       augmentation=True,
-                       saveModelCheckpoint=False,)
-    pipeline_cv.run_cross_validation(folds=5)
-    pipeline_cv.plot_cross_validation_results()
-    pipeline_cv.run_pipeline() # Train on all data after cross validation
-    pipeline_cv.plot_histories()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train ML models with GPU selection')

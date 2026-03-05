@@ -1,3 +1,5 @@
+import gc
+
 import tensorflow as tf
 from models.baseModel import BaseModel as bm
 import matplotlib.pyplot as plt
@@ -167,7 +169,7 @@ class MLPipeline:
         img_size = kwargs.get("img_size", (300,300))
         augmentation = kwargs.get("augmentation", False)
         two_inputs = kwargs.get("two_inputs", False)
-        print(augmentation)
+
 
         
         full_ds = self.create_full_dataset(
@@ -190,10 +192,7 @@ class MLPipeline:
             labels = np.array([y.numpy() for _, y in samples]).reshape(-1)
 
 
-        print(labels)
-        print(len(labels))
         n = len(images_a)
-        print(n)
         if cross_validation:
                 skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
                 train_idx, val_idx = list(skf.split(np.zeros(n), labels))[fold_index]
@@ -236,7 +235,6 @@ class MLPipeline:
             )
 
             train_ds = train_ds.concatenate(augmented_ds)
-        print(len(train_ds), len(val_ds))
         train_ds = (train_ds.shuffle(1000).batch(batch_size).prefetch(tf.data.AUTOTUNE))
 
         val_ds = (val_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE))
@@ -259,8 +257,10 @@ class MLPipeline:
 
     def run_pipeline(self):
         self.hists = []
+        print("Running Normal Model training")
 
         for model in self.models:
+            print(f"  Model Name: {model['name']}")
             train_ds, val_ds = self.create_datasets(model["good_paths"], model["bad_paths"], **model["params"])
 
             mod = bm(model["model_cls"], **model["params"])
@@ -302,12 +302,15 @@ class MLPipeline:
 
     def run_cross_validation(self, folds=5):
         self.hists = []
+        print(f"Running cross-validation with {folds} folds...")
 
         for model in self.models:
             fold_histories = []
             fold_rows = []
+            print(f"  Model Name: {model['name']}")
 
             for fold in range(folds):
+                print(f"    Fold {fold+1}/{folds}")
                 train_ds, val_ds = self.create_datasets(model["good_paths"],model["bad_paths"],
                     cross_validation=True, k_folds=folds, fold_index=fold, **model["params"])
 
@@ -323,6 +326,8 @@ class MLPipeline:
 
                 avg_metrics["fold"] = fold
                 fold_rows.append(avg_metrics)
+                tf.keras.backend.clear_session()
+                gc.collect()
 
             df = pd.DataFrame(fold_rows).set_index("fold")
 
