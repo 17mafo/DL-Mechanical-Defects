@@ -1,0 +1,10 @@
+model_file,model_name,two_inputs,preprocess,image_type,n_samples,threshold,accuracy,f1,precision,recall,tn,fp,fn,tp,auc
+resnet50v2_initial_1_2_best_model.keras,resnet50v2_initial_1_2_best_model,True,resnet50v2,initial,200,0.5,0.985,0.9852216748768473,0.970873786407767,1.0,97,3,0,100,0.9998
+vgg19_initial_1_2_best_model.keras,vgg19_initial_1_2_best_model,True,vgg19,initial,200,0.5,0.99,0.99,0.99,0.99,99,1,1,99,0.9996999999999999
+resnet50v2_initial_1_best_model.keras,resnet50v2_initial_1_best_model,False,resnet50v2,initial,200,0.5,0.985,0.9852216748768473,0.970873786407767,1.0,97,3,0,100,0.9996999999999999
+resnet50_initial_1_2_best_model.keras,resnet50_initial_1_2_best_model,True,resnet50,initial,200,0.5,0.985,0.9850746268656716,0.9801980198019802,0.99,98,2,1,99,0.9994999999999999
+vgg19_initial_1_best_model.keras,vgg19_initial_1_best_model,False,vgg19,initial,200,0.5,0.98,0.98,0.98,0.98,98,2,2,98,0.9994999999999999
+vgg19_initial_2_best_model.keras,vgg19_initial_2_best_model,False,vgg19,initial,200,0.5,0.99,0.98989898989899,1.0,0.98,100,0,2,98,0.9988
+resnet50v2_initial_2_best_model.keras,resnet50v2_initial_2_best_model,False,resnet50v2,initial,200,0.5,0.97,0.97,0.97,0.97,97,3,3,97,0.9963
+resnet50_initial_2_best_model.keras,resnet50_initial_2_best_model,False,resnet50,initial,200,0.5,0.97,0.9696969696969697,0.9795918367346939,0.96,98,2,4,96,0.9956
+resnet50_initial_1_best_model.keras,resnet50_initial_1_best_model,False,resnet50,initial,200,0.5,0.99,0.99,0.99,0.99,99,1,1,99,0.9937
