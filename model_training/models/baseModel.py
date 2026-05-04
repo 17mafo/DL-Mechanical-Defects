@@ -138,7 +138,7 @@ class BaseModel:
         self.model.compile(optimizer=params.get('optimizer', 'adam'), 
                            loss=params.get('loss', 'binary_crossentropy'),
                            metrics=metrics)
-        # Lägg till early stopping (Spara den bästa)
+        # add to early stopping, restore to best model
         self.history = self.model.fit(self.train_ds, 
                        validation_data=self.val_ds,
                        epochs=params.get('epochs', 50),

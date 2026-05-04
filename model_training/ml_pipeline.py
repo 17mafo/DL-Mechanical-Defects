@@ -401,7 +401,7 @@ class MLPipeline:
         for hist in self.hists:
             fold_histories = hist[1]
 
-            # Samla data från alla folds (kan ha olika längd p.g.a. early stopping)
+            # Collect data from all folds, can differ in lenght due to early stopping
             val_loss_lists = [h.history['val_loss'] for h in fold_histories]
             val_acc_lists = [h.history['val_accuracy'] for h in fold_histories]
 
@@ -416,7 +416,7 @@ class MLPipeline:
             for i, values in enumerate(val_acc_lists):
                 val_accs[i, :len(values)] = values
 
-            # Medelvärde och standardavvikelse per epoch
+            # Mean and standard deviation per epoch
             avg_val_loss = np.nanmean(val_losses, axis=0)
             std_val_loss = np.nanstd(val_losses, axis=0)
 
@@ -427,7 +427,7 @@ class MLPipeline:
 
             plt.figure(figsize=(12, 4))
 
-            # --- Validation Loss ---
+            # Validation loss
             plt.subplot(1, 2, 1)
             plt.plot(epochs, avg_val_loss, label='Mean Validation Loss')
             plt.fill_between(
@@ -442,7 +442,7 @@ class MLPipeline:
             plt.ylabel('Loss')
             plt.legend()
 
-            # --- Validation Accuracy ---
+            # Validation accuracy
             plt.subplot(1, 2, 2)
             plt.plot(epochs, avg_val_acc, label='Mean Validation Accuracy')
             plt.fill_between(
