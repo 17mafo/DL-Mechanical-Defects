@@ -33,11 +33,13 @@ PREPROCESS_BY_BACKBONE = {
 
 IMAGE_EXTS = (".png", ".jpg", ".jpeg")
 
+names = []
 
 def pick_preprocess_from_model_name(model_name: str):
     name = model_name.lower()
     for key, fn in PREPROCESS_BY_BACKBONE.items():
         if key in name:
+            names.append(key)
             return fn, key
     return lambda x: x, "none"
 
@@ -127,6 +129,38 @@ def build_two_input_dataset(heldout_root: Path, image_type: str, focus_a: str, f
         y.append(label)
 
     return np.stack(x1), np.stack(x2), np.array(y, dtype=np.int32)
+
+
+def build_rulebased_dataset(
+    heldout_root: Path,
+    image_type: str,
+    focus_a: str,
+    focus_b: str,
+    img_size,
+):
+    
+    base = heldout_root / image_type
+
+    class_label = {"good": 0, "bad": 1, "bad_but_looks_good": 1}
+
+    all_entries = []
+    for class_name, label in class_label.items():
+        pairs = build_two_input_pairs_for_class(base, class_name, focus_a, focus_b)
+        all_entries.extend((p_a, p_b, label) for p_a, p_b in pairs)
+
+    if len(all_entries) == 0:
+        raise ValueError(
+            f"No paired images found for ensemble dataset "
+            f"(focus_a={focus_a}, focus_b={focus_b})."
+        )
+
+    x_a, x_b, y = [], [], []
+    for p_a, p_b, label in all_entries:
+        x_a.append(load_image_array(p_a, img_size))
+        x_b.append(load_image_array(p_b, img_size))
+        y.append(label)
+
+    return np.stack(x_a), np.stack(x_b), np.array(y, dtype=np.int32)
 
 
 def save_confusion_matrix_plot(cm, out_path: Path, title: str):
@@ -229,6 +263,76 @@ def evaluate_one_model(model_path: Path, heldout_root: Path, image_type: str, im
     return result, y_true, y_score, cm
 
 
+def evaluate_rulebased_models(
+    model_path_a: Path,
+    model_path_b: Path,
+    focus_a: str,
+    focus_b: str,
+    heldout_root: Path,
+    image_type: str,
+    img_size,
+    threshold: float,
+    batch_size: int,
+):
+
+    model_a = tf.keras.models.load_model(str(model_path_a), compile=False)
+    model_b = tf.keras.models.load_model(str(model_path_b), compile=False)
+
+    preprocess_fn_a, preprocess_name_a = pick_preprocess_from_model_name(model_path_a.stem)
+    preprocess_fn_b, preprocess_name_b = pick_preprocess_from_model_name(model_path_b.stem)
+
+
+    x_a_raw, x_b_raw, y_true = build_rulebased_dataset(
+        heldout_root, image_type, focus_a, focus_b, img_size
+    )
+
+
+    x_a = preprocess_fn_a(x_a_raw.copy())
+    x_b = preprocess_fn_b(x_b_raw.copy())
+
+    score_a = model_a.predict(x_a, batch_size=batch_size, verbose=0).reshape(-1)
+    score_b = model_b.predict(x_b, batch_size=batch_size, verbose=0).reshape(-1)
+
+    pred_a = (score_a >= threshold).astype(np.int32)
+    pred_b = (score_b >= threshold).astype(np.int32)
+
+    y_pred = np.where((pred_a == 0) & (pred_b == 0), 0, 1).astype(np.int32)
+
+
+    y_score = np.maximum(score_a, score_b)
+
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+    tn, fp, fn, tp = cm.ravel()
+
+    ensemble_name = f"rule_based_{names[0]}_1_2"
+
+    result = {
+        "model_file": f"{model_path_a.name} + {model_path_b.name}",
+        "model_name": ensemble_name,
+        "two_inputs": False,
+        "preprocess": f"{preprocess_name_a} / {preprocess_name_b}",
+        "image_type": image_type,
+        "n_samples": int(len(y_true)),
+        "threshold": float(threshold),
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+        "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+        "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+        "tn": int(tn),
+        "fp": int(fp),
+        "fn": int(fn),
+        "tp": int(tp),
+    }
+
+    unique = np.unique(y_true)
+    if len(unique) == 2:
+        result["auc"] = float(roc_auc_score(y_true, y_score))
+    else:
+        result["auc"] = np.nan
+
+    return result, y_true, y_score, cm, ensemble_name
+
+
 def main():
     parser = argparse.ArgumentParser(description="Evaluate saved models on heldout dataset.")
     parser.add_argument("--models_dir", type=str, default="../model_training/saved_models")
@@ -239,6 +343,15 @@ def main():
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--output_dir", type=str, default="./heldout_eval")
+
+    
+    parser.add_argument(
+        "--rulebased", nargs=2, metavar=("MODEL_A", "MODEL_B"), default=None,
+        help=("example --rulebased model_focus1.keras model_focus2.keras"),)
+    parser.add_argument(
+        "--rulebased_focuses", nargs=2, metavar=("FOCUS_A", "FOCUS_B"), 
+        default=("1", "2"), help=("example --rulebased_focuses 1 2"),) # make sure model and focus folder are in same order!
+
     args = parser.parse_args()
 
     models_dir = Path(args.models_dir).resolve()
@@ -246,20 +359,35 @@ def main():
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    model_files = sorted(
-        [p for p in models_dir.glob("*.h5")] + [p for p in models_dir.glob("*.keras")]
-    )
-
-    if not model_files:
-        raise FileNotFoundError(f"No model files found in: {models_dir}")
-
-    results = []
     img_size = (args.img_h, args.img_w)
+    results = []
 
-    for model_path in model_files:
+
+    if args.rulebased is not None:
+        if args.rulebased_focuses is None:
+            parser.error("--rulebased_focuses FOCUS_A FOCUS_B is required when --rulebased is used.")
+
+        def resolve_model(name_or_path: str) -> Path:
+            p = Path(name_or_path)
+            if p.is_absolute() and p.exists():
+                return p
+            candidate = models_dir / name_or_path
+            if candidate.exists():
+                return candidate
+            raise FileNotFoundError(f"Cannot find model: {name_or_path}")
+
+        model_path_a = resolve_model(args.rulebased[0])
+        model_path_b = resolve_model(args.rulebased[1])
+        focus_a, focus_b = args.rulebased_focuses[0], args.rulebased_focuses[1]
+
+        print(f"[RULE-BASED] {model_path_a.name} (focus={focus_a})  AND  {model_path_b.name} (focus={focus_b})")
+
         try:
-            result, y_true, y_score, cm = evaluate_one_model(
-                model_path=model_path,
+            result, y_true, y_score, cm, ensemble_name = evaluate_rulebased_models(
+                model_path_a=model_path_a,
+                model_path_b=model_path_b,
+                focus_a=focus_a,
+                focus_b=focus_b,
                 heldout_root=heldout_root,
                 image_type=args.image_type,
                 img_size=img_size,
@@ -268,31 +396,72 @@ def main():
             )
             results.append(result)
 
-            base_name = model_path.stem
             save_confusion_matrix_plot(
                 cm,
-                output_dir / f"{base_name}_cm.png",
-                title=f"Confusion Matrix - {base_name}",
+                output_dir / f"{ensemble_name}_cm.png",
+                title=f"Confusion Matrix - {ensemble_name}",
             )
-
             if len(np.unique(y_true)) == 2:
                 save_roc_plot(
                     y_true,
                     y_score,
-                    output_dir / f"{base_name}_roc.png",
-                    title=f"ROC - {base_name}",
+                    output_dir / f"{ensemble_name}_roc.png",
+                    title=f"ROC - {ensemble_name}",
                 )
 
-            print(f"[OK] {model_path.name} evaluated.")
+            print(f"[OK] Ensemble evaluated. AUC={result.get('auc', float('nan')):.4f}  "
+                  f"F1={result['f1']:.4f}  Acc={result['accuracy']:.4f}")
 
         except Exception as e:
-            print(f"[FAIL] {model_path.name}: {e}")
+            print(f"[FAIL] Ensemble: {e}")
+            raise
+
+    
+    else:
+        model_files = sorted(
+            [p for p in models_dir.glob("*.h5")] + [p for p in models_dir.glob("*.keras")]
+        )
+
+        if not model_files:
+            raise FileNotFoundError(f"No model files found in: {models_dir}")
+
+        for model_path in model_files:
+            try:
+                result, y_true, y_score, cm = evaluate_one_model(
+                    model_path=model_path,
+                    heldout_root=heldout_root,
+                    image_type=args.image_type,
+                    img_size=img_size,
+                    threshold=args.threshold,
+                    batch_size=args.batch_size,
+                )
+                results.append(result)
+
+                base_name = model_path.stem
+                save_confusion_matrix_plot(
+                    cm,
+                    output_dir / f"{base_name}_cm.png",
+                    title=f"Confusion Matrix - {base_name}",
+                )
+
+                if len(np.unique(y_true)) == 2:
+                    save_roc_plot(
+                        y_true,
+                        y_score,
+                        output_dir / f"{base_name}_roc.png",
+                        title=f"ROC - {base_name}",
+                    )
+
+                print(f"[OK] {model_path.name} evaluated.")
+
+            except Exception as e:
+                print(f"[FAIL] {model_path.name}: {e}")
 
     if len(results) == 0:
         raise RuntimeError("No models were evaluated successfully.")
 
     df = pd.DataFrame(results).sort_values(by="auc", ascending=False, na_position="last")
-    out_csv = output_dir / "heldout_metrics_summary.csv"
+    out_csv = output_dir / "heldout_metrics_summary_production_resnetv2.csv"
     df.to_csv(out_csv, index=False)
 
     print("\nSaved:")
