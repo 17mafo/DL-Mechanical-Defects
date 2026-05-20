@@ -1,0 +1,2 @@
+model_file,model_name,two_inputs,preprocess,image_type,n_samples,threshold,accuracy,f1,precision,recall,tn,fp,fn,tp,auc
+vgg19_initial_1_best_model.keras + vgg19_initial_2_best_model.keras,rule_based_vgg19_1_2,False,vgg19 / vgg19,initial,3158,0.5,0.88948701709943,0.8232911392405063,0.777246653919694,0.8751345532831001,1996,233,116,813,0.9534113633718557

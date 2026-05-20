@@ -1,0 +1,2 @@
+model_file,model_name,two_inputs,preprocess,image_type,n_samples,threshold,accuracy,f1,precision,recall,tn,fp,fn,tp,auc
+resnet50v2_initial_1_best_model.keras + resnet50v2_initial_2_best_model.keras,rule_based_resnet50v2_1_2,False,resnet50v2 / resnet50v2,initial,3158,0.5,0.8492716909436352,0.7638888888888888,0.7083716651333947,0.8288482238966631,1912,317,159,770,0.9237596589819779
